@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, ApiUnavailableError, apiFetch } from "@/lib/api/client";
 
+// connection() needs a Next.js request scope; in unit tests there is none.
+vi.mock("next/server", () => ({ connection: vi.fn(async () => undefined) }));
+
 const ORG = "00000000-0000-4000-8000-000000000001";
 
 function jsonResponse(status: number, body: unknown) {
