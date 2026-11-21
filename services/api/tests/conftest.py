@@ -53,7 +53,8 @@ def clean_tables() -> Iterator[None]:
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE sessions, memberships, users, stock_movements, products, categories, "
+                "TRUNCATE sale_lines, sales, sessions, memberships, users, stock_movements, "
+                "products, categories, "
                 "organizations CASCADE"
             )
         )

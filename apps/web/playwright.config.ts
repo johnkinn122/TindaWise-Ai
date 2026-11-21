@@ -32,7 +32,7 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
         storageState: "test/e2e/.auth/owner.json",
       },
-      testIgnore: /(mobile|cashier)\.spec\.ts/,
+      testIgnore: /(mobile|cashier|pos)\.spec\.ts/,
       dependencies: ["setup"],
     },
     {
@@ -42,7 +42,7 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
         storageState: "test/e2e/.auth/cashier.json",
       },
-      testMatch: /cashier\.spec\.ts/,
+      testMatch: /(cashier|pos)\.spec\.ts/,
       dependencies: ["setup"],
     },
     {

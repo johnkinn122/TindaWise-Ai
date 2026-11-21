@@ -105,6 +105,18 @@ def list_products(
     return list(rows), total
 
 
+def lookup_product(db: Session, org_id: uuid.UUID, code: str) -> Product:
+    """Exact match on barcode, then SKU (case-insensitive). Used by barcode scanners at checkout."""
+    code = code.strip()
+    base = select(Product).where(Product.organization_id == org_id, Product.is_active.is_(True))
+    product = db.scalar(base.where(Product.barcode == code)) or db.scalar(
+        base.where(func.lower(Product.sku) == code.lower())
+    )
+    if product is None:
+        raise NotFoundError(f"No product with barcode or SKU “{code}”.")
+    return product
+
+
 def get_product(db: Session, org_id: uuid.UUID, product_id: uuid.UUID) -> Product:
     product = db.scalar(
         select(Product).where(Product.id == product_id, Product.organization_id == org_id)

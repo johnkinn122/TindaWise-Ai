@@ -56,3 +56,29 @@ export interface ApiErrorBody {
     fields: Record<string, string>;
   };
 }
+
+export interface SaleLine {
+  product_id: string;
+  product_name: string;
+  sku: string;
+  unit: string;
+  unit_price: string;
+  quantity: number;
+  line_total: string;
+}
+
+export interface Sale {
+  id: string;
+  receipt_number: number;
+  receipt_code: string;
+  total: string;
+  currency: string;
+  payment_method: "cash" | "e_wallet";
+  amount_tendered: string | null;
+  change_due: string | null;
+  payment_reference: string | null;
+  created_at: string;
+  cashier_name: string | null;
+  item_count: number;
+  lines: SaleLine[];
+}
