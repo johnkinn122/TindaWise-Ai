@@ -1,0 +1,158 @@
+/*
+ * Tindawise AI — design tokens (v0.1)
+ * Target: Next.js + Tailwind CSS v4 + shadcn/ui.
+ * Usage: when the Next.js app exists, merge this into src/app/globals.css
+ * (replace shadcn's default :root / .dark blocks).
+ * Fonts are loaded with next/font and exposed as --font-display / --font-sans.
+ */
+
+:root {
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  --background: #f6f7f5;
+  --foreground: #1a2420;
+  --card: #ffffff;
+  --card-foreground: #1a2420;
+  --popover: #ffffff;
+  --popover-foreground: #1a2420;
+  --primary: #0f5c4d;            /* Dahon */
+  --primary-foreground: #ffffff;
+  --secondary: #eef1ee;
+  --secondary-foreground: #1a2420;
+  --muted: #eef1ee;
+  --muted-foreground: #5b6661;
+  --accent: #f2b33d;             /* Mangga — AI insights only */
+  --accent-foreground: #1a2420;
+  --destructive: #c2362b;
+  --success: #1e7f4f;
+  --warning: #b45309;
+  --info: #2f5da8;
+  --border: #dde2de;
+  --input: #dde2de;
+  --ring: #0f5c4d;
+
+  --chart-1: #0f5c4d;
+  --chart-2: #2f5da8;
+  --chart-3: #b7791f;
+  --chart-4: #7a4e8c;
+  --chart-5: #8a948f;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a2420;
+  --sidebar-primary: #0f5c4d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef1ee;
+  --sidebar-accent-foreground: #1a2420;
+  --sidebar-border: #dde2de;
+  --sidebar-ring: #0f5c4d;
+
+  --shadow-float: 0 8px 24px -8px rgb(15 21 19 / 0.18);
+}
+
+.dark {
+  --background: #0f1513;
+  --foreground: #e6ece9;
+  --card: #161e1b;
+  --card-foreground: #e6ece9;
+  --popover: #161e1b;
+  --popover-foreground: #e6ece9;
+  --primary: #4fbfa3;
+  --primary-foreground: #0f1513;
+  --secondary: #1d2723;
+  --secondary-foreground: #e6ece9;
+  --muted: #1d2723;
+  --muted-foreground: #9aa6a0;
+  --accent: #f2b33d;
+  --accent-foreground: #1a2420;
+  --destructive: #f07065;
+  --success: #4cc38a;
+  --warning: #e8a04a;
+  --info: #7fa6e8;
+  --border: #2a3530;
+  --input: #2a3530;
+  --ring: #4fbfa3;
+
+  --chart-1: #4fbfa3;
+  --chart-2: #7fa6e8;
+  --chart-3: #e0a94a;
+  --chart-4: #b98acb;
+  --chart-5: #7d8a84;
+
+  --sidebar: #131a17;
+  --sidebar-foreground: #e6ece9;
+  --sidebar-primary: #4fbfa3;
+  --sidebar-primary-foreground: #0f1513;
+  --sidebar-accent: #1d2723;
+  --sidebar-accent-foreground: #e6ece9;
+  --sidebar-border: #2a3530;
+  --sidebar-ring: #4fbfa3;
+
+  --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-md);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --text-display: 2rem;
+  --text-display--line-height: 1.15;
+  --text-kpi: 1.75rem;
+  --text-kpi--line-height: 1.1;
+  --shadow-float: var(--shadow-float);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .tabular, td, .kpi { font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
