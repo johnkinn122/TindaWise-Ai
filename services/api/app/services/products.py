@@ -155,7 +155,6 @@ def create_product(db: Session, org: Organization, data: ProductCreate) -> Produ
                 product=product,
                 quantity_change=data.initial_stock,
                 reason=MovementReason.INITIAL,
-                note="Opening stock",
             )
         db.commit()
     except IntegrityError as exc:

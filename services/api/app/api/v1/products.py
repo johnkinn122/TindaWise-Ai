@@ -87,6 +87,8 @@ def adjust_stock(
         Header(max_length=80, description="Send the same key when retrying the same change"),
     ] = None,
 ):
+    # A blank header means "no key", never a key of "" shared by every request.
+    key = idempotency_key.strip() if idempotency_key else None
     movement, created = inventory_service.apply_stock_change(
         db,
         org_id=org.id,
@@ -94,7 +96,7 @@ def adjust_stock(
         quantity_change=data.quantity_change,
         reason=data.reason,
         note=data.note,
-        idempotency_key=idempotency_key,
+        idempotency_key=key or None,
     )
     if not created:
         response.status_code = status.HTTP_200_OK

@@ -7,7 +7,7 @@
 ```
 tindawise-ai/
 ├── apps/
-│   └── web/                 ✅ Next.js frontend (UI shell + Overview on sample data)
+│   └── web/                 ✅ Next.js frontend: app shell, Overview (sample data), Products (live API)
 ├── services/
 │   ├── api/                 ✅ FastAPI backend: products, categories, inventory ledger
 │   └── ml/                  📋 Forecasting + anomaly detection (scikit-learn, LightGBM)
@@ -41,13 +41,17 @@ src/
 │   ├── globals.css             Design tokens + Resibo card styles
 │   └── (dashboard)/            Route group: shares the app shell, not part of the URL
 │       ├── layout.tsx          Sidebar + top bar + <main>
-│       ├── page.tsx            "/" Overview
-│       └── sell|products|inventory|suppliers|reports/page.tsx   Planned-module placeholders
+│       ├── page.tsx            "/" Overview (sample data)
+│       ├── error.tsx           Fallback error screen inside the shell
+│       ├── products/           Live: list, /new, /[id] (detail + stock), /[id]/edit, actions.ts
+│       └── sell|inventory|suppliers|reports/page.tsx   Planned-module placeholders
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
 │   ├── layout/                 App shell: sidebar, mobile drawer, top bar, nav, theme toggle
-│   └── dashboard/              Overview building blocks: KPI strip, chart, stock table, Resibo card
+│   ├── dashboard/              Overview building blocks: KPI strip, chart, stock table, Resibo card
+│   └── products/               Filters, table, pagination, product form, stock form, archive dialog
 └── lib/
+    ├── api/                    server-only API client + typed product endpoints
     ├── format.ts               Peso / number / percent formatting (en-PH)
     ├── sample-data.ts          SAMPLE DATA ONLY — replaced by API calls later
     └── utils.ts                cn() class merging
@@ -61,6 +65,18 @@ src/
   paint (no flash). The toggle saves the choice to `localStorage`; with no saved choice, the OS setting wins.
 - **Sample data is quarantined.** All demo numbers live in `src/lib/sample-data.ts`, and every screen
   using them shows a "Sample data" badge. This follows the rule never to present invented analytics as real.
+- **The browser never talks to the API directly.** Server Components read through `lib/api/*`
+  (marked `server-only`) and Server Actions write through it. `API_URL` and the temporary
+  organization id live in `.env.local` without a `NEXT_PUBLIC_` prefix, so they never reach the client.
+- **Pages are Partial Prerenders.** With Cache Components on, each Products page ships a static shell
+  (header, panel frames, skeletons) and streams API data inside `<Suspense>`. Client hooks that read
+  the URL (`usePathname`, `useSearchParams`) also sit inside Suspense boundaries.
+- **Filters live in the URL** (`?q=&status=&category=&sort=&page=`), so views are shareable and the
+  back button works.
+- **Forms work like the API.** Field errors from the API (`error.fields`) render under their fields,
+  focus moves to an error summary, and typed values are kept after a failed submit.
+- **Stock changes are idempotent from the UI too.** The stock form creates an `Idempotency-Key` at
+  submit time, so a double submit or network retry is applied once.
 - **AI actions stay inert until approval exists.** The Resibo card's "Create purchase order" is disabled
   until the backend has a human-approval flow (claude.md §9).
 

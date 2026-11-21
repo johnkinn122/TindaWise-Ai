@@ -4,6 +4,37 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Products UI (`feature/products-ui`, based on `feature/api-foundation`)
+
+### Built
+- Server-only API client (`lib/api`) with typed errors (`ApiError`, `ApiUnavailableError`).
+- `/products`: search (debounced), stock-status and category filters, sorting, pagination, empty
+  and "no matches" states, API-unreachable state with retry.
+- `/products/new` and `/products/[id]/edit`: one form with field-level API errors, an error
+  summary that receives focus, and preserved input after errors.
+- `/products/[id]`: stock on hand, stock adjustment form (reason-aware add/remove, idempotency key),
+  stock history, details with margin, archive with confirmation.
+- `npm run dev:api` (cross-platform script) and `apps/web/.env.example`.
+
+### Verified
+- `typecheck`, `lint`, `build` pass. Products routes build as Partial Prerenders.
+- Manually against the seeded API: list, filters, detail and form render; screenshots reviewed at
+  1440px, 1024px and 390px.
+- API tests: 27 passed (new: a blank `Idempotency-Key` is treated as no key).
+
+### Bugs found and fixed
+- Build failed: `usePathname` in the sidebar suspends on dynamic routes under Cache Components.
+  Wrapped the nav in Suspense with a non-highlighted fallback.
+- A blank `Idempotency-Key` would have been stored as `""` and collided across requests.
+- Form fields without hint text were stretched by CSS grid and misaligned with their neighbours.
+- Phones hid the stock status column entirely; the badge now shows under the product name.
+
+### Known issues / open items
+- Create, edit, adjust and archive are not yet covered by automated browser tests (next: Playwright).
+- The Overview page still uses sample data.
+
+---
+
 ## 2026-11-22 — API foundation (`feature/api-foundation`)
 
 ### Built

@@ -8,7 +8,9 @@
  * Replace these exports with API calls once the backend exists.
  */
 
-export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
+import type { StockStatus } from "@/lib/api/types";
+
+export type { StockStatus };
 
 export interface Kpi {
   id: string;
