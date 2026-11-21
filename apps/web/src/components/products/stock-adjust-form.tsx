@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useLayoutEffect, useRef, useState } from "react";
 import { adjustStockAction, type FormState } from "@/app/(dashboard)/products/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,12 @@ export function StockAdjustForm({ product }: { product: Product }) {
   // One key per submission, created at submit time (not during render, so server and client
   // HTML match). React resets the form after each action, which clears it for the next one.
   const idempotencyKeyRef = useRef<HTMLInputElement>(null);
+
+  // When this page is hidden by <Activity> and shown again later, don't replay an old
+  // "Stock updated" message: remember the state that was on screen when it was hidden.
+  const [hiddenState, setHiddenState] = useState<FormState | null>(null);
+  useLayoutEffect(() => () => setHiddenState(state), [state]);
+  const showMessage = state !== hiddenState;
 
   const reasonConfig = adjustmentReasons.find((option) => option.value === reason)!;
   const direction = reasonConfig.direction === "either" ? chosenDirection : reasonConfig.direction;
@@ -41,10 +47,10 @@ export function StockAdjustForm({ product }: { product: Product }) {
       <input ref={idempotencyKeyRef} type="hidden" name="idempotency_key" defaultValue="" />
       <input type="hidden" name="direction" value={direction} />
 
-      <FormField id="reason" label="Reason" error={error("reason")}>
-        {(describedBy) => (
+      <FormField name="reason" label="Reason" error={error("reason")}>
+        {({ id, describedBy }) => (
           <select
-            id="reason"
+            id={id}
             name="reason"
             value={reason}
             onChange={(event) => setReason(event.target.value as MovementReason)}
@@ -87,15 +93,14 @@ export function StockAdjustForm({ product }: { product: Product }) {
         </fieldset>
       )}
 
-      <FormField
-        id="quantity"
+      <FormField name="quantity"
         label={direction === "add" ? `Quantity to add (${product.unit})` : `Quantity to remove (${product.unit})`}
         required
         error={error("quantity")}
       >
-        {(describedBy) => (
+        {({ id, describedBy }) => (
           <Input
-            id="quantity"
+            id={id}
             name="quantity"
             type="number"
             min={1}
@@ -110,10 +115,10 @@ export function StockAdjustForm({ product }: { product: Product }) {
         )}
       </FormField>
 
-      <FormField id="note" label="Note" hint="Optional. For example, the supplier's receipt number." error={error("note")}>
-        {(describedBy) => (
+      <FormField name="note" label="Note" hint="Optional. For example, the supplier's receipt number." error={error("note")}>
+        {({ id, describedBy }) => (
           <Textarea
-            id="note"
+            id={id}
             name="note"
             rows={2}
             maxLength={280}
@@ -124,8 +129,10 @@ export function StockAdjustForm({ product }: { product: Product }) {
       </FormField>
 
       <div aria-live="polite" className="min-h-5 text-[0.8125rem]">
-        {state.status === "success" && <p className="font-medium text-success">{state.message}</p>}
-        {state.status === "error" && !state.fields?.quantity && <p className="text-destructive">{state.message}</p>}
+        {showMessage && state.status === "success" && <p className="font-medium text-success">{state.message}</p>}
+        {showMessage && state.status === "error" && !state.fields?.quantity && (
+          <p className="text-destructive">{state.message}</p>
+        )}
       </div>
 
       <Button type="submit" disabled={isPending} className="w-full sm:w-fit">

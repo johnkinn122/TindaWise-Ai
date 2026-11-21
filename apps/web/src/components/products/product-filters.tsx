@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import type { Category } from "@/lib/api/types";
 import { sortOptions, stockStatusOptions } from "@/lib/products";
@@ -20,8 +20,19 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const urlQuery = searchParams.get("q") ?? "";
+  const [query, setQuery] = useState(urlQuery);
+  const [syncedQuery, setSyncedQuery] = useState(urlQuery);
+
+  // The URL can change without this input (a redirect, the back button, a link). This page may
+  // also be kept alive by <Activity> between visits, so resync the box from the URL when it moves,
+  // unless the change came from what is already typed here.
+  if (urlQuery !== syncedQuery) {
+    setSyncedQuery(urlQuery);
+    if (urlQuery !== query.trim()) setQuery(urlQuery);
+  }
   const debounce = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const uid = useId(); // unique ids even if a hidden copy of this page stays in the DOM
 
   function update(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -46,7 +57,7 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
       className={cn("flex flex-wrap items-end gap-3 transition-opacity", isPending && "opacity-70")}
     >
       <div className="grid min-w-56 flex-1 gap-1.5">
-        <label htmlFor="product-search" className="text-[0.8125rem] font-medium">
+        <label htmlFor={`product-search-${uid}`} className="text-[0.8125rem] font-medium">
           Search
         </label>
         <div className="relative">
@@ -56,7 +67,7 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
             aria-hidden="true"
           />
           <Input
-            id="product-search"
+            id={`product-search-${uid}`}
             type="search"
             value={query}
             onChange={(event) => onSearch(event.target.value)}
@@ -67,11 +78,11 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
       </div>
 
       <div className="grid gap-1.5">
-        <label htmlFor="filter-status" className="text-[0.8125rem] font-medium">
+        <label htmlFor={`filter-status-${uid}`} className="text-[0.8125rem] font-medium">
           Stock
         </label>
         <select
-          id="filter-status"
+          id={`filter-status-${uid}`}
           className={selectClass}
           value={searchParams.get("status") ?? ""}
           onChange={(event) => update("status", event.target.value)}
@@ -86,11 +97,11 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
       </div>
 
       <div className="grid gap-1.5">
-        <label htmlFor="filter-category" className="text-[0.8125rem] font-medium">
+        <label htmlFor={`filter-category-${uid}`} className="text-[0.8125rem] font-medium">
           Category
         </label>
         <select
-          id="filter-category"
+          id={`filter-category-${uid}`}
           className={selectClass}
           value={searchParams.get("category") ?? ""}
           onChange={(event) => update("category", event.target.value)}
@@ -105,11 +116,11 @@ export function ProductFilters({ categories }: { categories: Category[] }) {
       </div>
 
       <div className="grid gap-1.5">
-        <label htmlFor="filter-sort" className="text-[0.8125rem] font-medium">
+        <label htmlFor={`filter-sort-${uid}`} className="text-[0.8125rem] font-medium">
           Sort
         </label>
         <select
-          id="filter-sort"
+          id={`filter-sort-${uid}`}
           className={selectClass}
           value={searchParams.get("sort") ?? "name"}
           onChange={(event) => update("sort", event.target.value === "name" ? "" : event.target.value)}

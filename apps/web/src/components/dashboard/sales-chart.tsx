@@ -39,7 +39,6 @@ export function SalesChart({ data, summary }: SalesChartProps) {
 
   return (
     <Panel
-      id="sales-chart-title"
       title="Sales this week"
       action={
         <Button variant="outline" onClick={() => setShowTable((value) => !value)} aria-pressed={showTable}>

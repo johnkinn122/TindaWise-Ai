@@ -36,7 +36,14 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
   const error = (key: string) => state.fields?.[key];
 
   return (
-    <form action={formAction} noValidate className="grid gap-6">
+    <form
+      action={formAction}
+      noValidate
+      className="grid gap-6"
+      // Cache Components keeps visited pages alive (hidden). Reset the fields when this one is
+      // hidden, so "Add product" starts empty next time and "Edit" shows the saved values.
+      ref={(form) => () => form?.reset()}
+    >
       {state.status === "error" && (
         <div
           ref={summaryRef}
@@ -53,10 +60,10 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
 
       <fieldset className="grid gap-4">
         <legend className="mb-1 text-lg font-semibold">Details</legend>
-        <FormField id="name" label="Product name" required error={error("name")}>
-          {(describedBy) => (
+        <FormField name="name" label="Product name" required error={error("name")}>
+          {({ id, describedBy }) => (
             <Input
-              id="name"
+              id={id}
               name="name"
               required
               maxLength={160}
@@ -69,10 +76,10 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
         </FormField>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField id="sku" label="SKU" required hint="Your own code for this product." error={error("sku")}>
-            {(describedBy) => (
+          <FormField name="sku" label="SKU" required hint="Your own code for this product." error={error("sku")}>
+            {({ id, describedBy }) => (
               <Input
-                id="sku"
+                id={id}
                 name="sku"
                 required
                 maxLength={64}
@@ -83,10 +90,10 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
               />
             )}
           </FormField>
-          <FormField id="barcode" label="Barcode" hint="Optional. Scan it or type it." error={error("barcode")}>
-            {(describedBy) => (
+          <FormField name="barcode" label="Barcode" hint="Optional. Scan it or type it." error={error("barcode")}>
+            {({ id, describedBy }) => (
               <Input
-                id="barcode"
+                id={id}
                 name="barcode"
                 inputMode="numeric"
                 maxLength={64}
@@ -100,10 +107,10 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField id="category_id" label="Category" error={error("category_id")}>
-            {(describedBy) => (
+          <FormField name="category_id" label="Category" error={error("category_id")}>
+            {({ id, describedBy }) => (
               <select
-                id="category_id"
+                id={id}
                 name="category_id"
                 defaultValue={value("category_id", product?.category?.id)}
                 aria-invalid={Boolean(error("category_id"))}
@@ -119,10 +126,10 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
               </select>
             )}
           </FormField>
-          <FormField id="unit" label="Unit" hint="How you count it: pcs, btl, can, pack." error={error("unit")}>
-            {(describedBy) => (
+          <FormField name="unit" label="Unit" hint="How you count it: pcs, btl, can, pack." error={error("unit")}>
+            {({ id, describedBy }) => (
               <Input
-                id="unit"
+                id={id}
                 name="unit"
                 maxLength={16}
                 defaultValue={value("unit", product?.unit ?? "pcs")}
@@ -137,10 +144,10 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
       <fieldset className="grid gap-4">
         <legend className="mb-1 text-lg font-semibold">Pricing</legend>
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField id="price" label="Selling price (₱)" required error={error("price")}>
-            {(describedBy) => (
+          <FormField name="price" label="Selling price (₱)" required error={error("price")}>
+            {({ id, describedBy }) => (
               <Input
-                id="price"
+                id={id}
                 name="price"
                 required
                 inputMode="decimal"
@@ -152,10 +159,10 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
               />
             )}
           </FormField>
-          <FormField id="cost" label="Cost (₱)" hint="What you pay the supplier. Used for profit." error={error("cost")}>
-            {(describedBy) => (
+          <FormField name="cost" label="Cost (₱)" hint="What you pay the supplier. Used for profit." error={error("cost")}>
+            {({ id, describedBy }) => (
               <Input
-                id="cost"
+                id={id}
                 name="cost"
                 inputMode="decimal"
                 placeholder="0.00"
@@ -172,15 +179,14 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
       <fieldset className="grid gap-4">
         <legend className="mb-1 text-lg font-semibold">Stock</legend>
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            id="reorder_level"
+          <FormField name="reorder_level"
             label="Reorder level"
             hint="Marked “Low stock” at or below this number."
             error={error("reorder_level")}
           >
-            {(describedBy) => (
+            {({ id, describedBy }) => (
               <Input
-                id="reorder_level"
+                id={id}
                 name="reorder_level"
                 type="number"
                 min={0}
@@ -194,15 +200,14 @@ export function ProductForm({ action, categories, product, submitLabel, cancelHr
             )}
           </FormField>
           {!isEdit && (
-            <FormField
-              id="initial_stock"
+            <FormField name="initial_stock"
               label="Opening stock"
               hint="How many you have right now."
               error={error("initial_stock")}
             >
-              {(describedBy) => (
+              {({ id, describedBy }) => (
                 <Input
-                  id="initial_stock"
+                  id={id}
                   name="initial_stock"
                   type="number"
                   min={0}
