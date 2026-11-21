@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Response, status
 
-from app.api.deps import CurrentOrg, DbSession
+from app.api.deps import CanManageInventory, CurrentOrg, DbSession
 from app.schemas.common import Page
 from app.schemas.inventory import StockAdjustmentCreate, StockMovementRead
 from app.schemas.product import (
@@ -46,8 +46,8 @@ def list_products(
 
 
 @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
-def create_product(data: ProductCreate, db: DbSession, org: CurrentOrg):
-    return service.create_product(db, org, data)
+def create_product(data: ProductCreate, db: DbSession, auth: CanManageInventory):
+    return service.create_product(db, auth.organization, data, created_by=auth.user.id)
 
 
 @router.get("/{product_id}", response_model=ProductRead)
@@ -56,14 +56,16 @@ def get_product(product_id: uuid.UUID, db: DbSession, org: CurrentOrg):
 
 
 @router.patch("/{product_id}", response_model=ProductRead)
-def update_product(product_id: uuid.UUID, data: ProductUpdate, db: DbSession, org: CurrentOrg):
-    return service.update_product(db, org.id, product_id, data)
+def update_product(
+    product_id: uuid.UUID, data: ProductUpdate, db: DbSession, auth: CanManageInventory
+):
+    return service.update_product(db, auth.organization.id, product_id, data)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def archive_product(product_id: uuid.UUID, db: DbSession, org: CurrentOrg) -> Response:
+def archive_product(product_id: uuid.UUID, db: DbSession, auth: CanManageInventory) -> Response:
     """Archives the product (soft delete). History is kept."""
-    service.archive_product(db, org.id, product_id)
+    service.archive_product(db, auth.organization.id, product_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -80,7 +82,7 @@ def adjust_stock(
     product_id: uuid.UUID,
     data: StockAdjustmentCreate,
     db: DbSession,
-    org: CurrentOrg,
+    auth: CanManageInventory,
     response: Response,
     idempotency_key: Annotated[
         str | None,
@@ -91,12 +93,13 @@ def adjust_stock(
     key = idempotency_key.strip() if idempotency_key else None
     movement, created = inventory_service.apply_stock_change(
         db,
-        org_id=org.id,
+        org_id=auth.organization.id,
         product_id=product_id,
         quantity_change=data.quantity_change,
         reason=data.reason,
         note=data.note,
         idempotency_key=key or None,
+        created_by=auth.user.id,
     )
     if not created:
         response.status_code = status.HTTP_200_OK

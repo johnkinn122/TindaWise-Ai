@@ -1,13 +1,14 @@
 import "server-only";
 
-import { connection } from "next/server";
+import { redirectToLogin } from "@/lib/auth/redirect-to-login";
+import { getSessionToken } from "@/lib/auth/session";
 import type { ApiErrorBody } from "./types";
 
 /**
  * Server-side client for the Tindawise API.
  *
- * Runs only on the server (Server Components and Server Actions), so the API URL and the
- * temporary organization header never reach the browser.
+ * Runs only on the server (Server Components and Server Actions). It forwards the signed-in
+ * user's session from the httpOnly cookie as a Bearer token; the API checks it on every request.
  */
 
 export class ApiError extends Error {
@@ -30,13 +31,10 @@ export class ApiUnavailableError extends Error {
   }
 }
 
-function config() {
-  const baseUrl = process.env.API_URL;
-  const orgId = process.env.TINDAWISE_ORG_ID;
-  if (!baseUrl || !orgId) {
-    throw new Error("API_URL and TINDAWISE_ORG_ID must be set. Copy apps/web/.env.example to .env.local.");
-  }
-  return { baseUrl: baseUrl.replace(/\/$/, ""), orgId };
+function baseUrl() {
+  const url = process.env.API_URL;
+  if (!url) throw new Error("API_URL must be set. Copy apps/web/.env.example to .env.local.");
+  return url.replace(/\/$/, "");
 }
 
 type Query = Record<string, string | number | boolean | undefined | null>;
@@ -46,14 +44,19 @@ interface RequestOptions {
   query?: Query;
   body?: unknown;
   headers?: Record<string, string>;
+  /**
+   * What to do when the API says the session is missing or expired.
+   * "redirect" (default) sends the person to sign in; "throw" lets the caller handle it
+   * (used by the sign-in form itself, where 401 means "wrong password").
+   */
+  onUnauthenticated?: "redirect" | "throw";
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  // API data is always per-request. This tells Next.js to stop prerendering here, so the build
-  // never needs API_URL or a running API (the Suspense fallback ships in the static shell instead).
-  await connection();
-  const { baseUrl, orgId } = config();
-  const url = new URL(`${baseUrl}/api/v1${path}`);
+  // Reading the cookie is request-time data, so Next.js never prerenders past this point
+  // and the build needs neither the API nor its settings.
+  const token = await getSessionToken();
+  const url = new URL(`${baseUrl()}/api/v1${path}`);
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
   }
@@ -64,8 +67,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       method: options.method ?? "GET",
       headers: {
         Accept: "application/json",
-        // TODO(auth): replace with the signed-in user's session once authentication exists.
-        "X-Organization-Id": orgId,
+        ...(token && { Authorization: `Bearer ${token}` }),
         ...(options.body !== undefined && { "Content-Type": "application/json" }),
         ...options.headers,
       },
@@ -81,12 +83,16 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const body = data as Partial<ApiErrorBody> | null;
-    throw new ApiError(
+    const error = new ApiError(
       response.status,
       body?.error?.code ?? "unknown_error",
       body?.error?.message ?? `Request failed with status ${response.status}.`,
       body?.error?.fields ?? {},
     );
+    if (error.status === 401 && (options.onUnauthenticated ?? "redirect") === "redirect") {
+      redirectToLogin("session");
+    }
+    throw error;
   }
   return data as T;
 }

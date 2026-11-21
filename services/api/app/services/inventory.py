@@ -35,6 +35,7 @@ def record_movement(
     reason: MovementReason,
     note: str | None = None,
     idempotency_key: str | None = None,
+    created_by: uuid.UUID | None = None,
 ) -> StockMovement:
     """Apply a change to a product that the caller has already locked. Does not commit."""
     new_balance = product.stock_on_hand + quantity_change
@@ -53,6 +54,7 @@ def record_movement(
         reason=reason.value,
         note=note,
         idempotency_key=idempotency_key,
+        created_by_user_id=created_by,
     )
     db.add(movement)
     return movement
@@ -67,6 +69,7 @@ def apply_stock_change(
     reason: MovementReason,
     note: str | None = None,
     idempotency_key: str | None = None,
+    created_by: uuid.UUID | None = None,
 ) -> tuple[StockMovement, bool]:
     """Change stock safely. Returns (movement, created). `created` is False on a replayed key."""
     if idempotency_key:
@@ -93,6 +96,7 @@ def apply_stock_change(
         reason=reason,
         note=note,
         idempotency_key=idempotency_key,
+        created_by=created_by,
     )
     try:
         db.commit()

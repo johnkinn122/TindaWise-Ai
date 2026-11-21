@@ -23,9 +23,14 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
+from app.core.security import hash_password  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.models import Organization  # noqa: E402
+from app.models import Membership, Organization, Role, User  # noqa: E402
+from app.schemas.auth import LoginRequest  # noqa: E402
+from app.services.auth import login  # noqa: E402
+
+TEST_PASSWORD = "correct-horse-battery"
 
 API_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -46,7 +51,12 @@ def migrated_database() -> Iterator[None]:
 def clean_tables() -> Iterator[None]:
     yield
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE stock_movements, products, categories, organizations CASCADE"))
+        conn.execute(
+            text(
+                "TRUNCATE sessions, memberships, users, stock_movements, products, categories, "
+                "organizations CASCADE"
+            )
+        )
 
 
 @pytest.fixture
@@ -74,14 +84,39 @@ def other_org() -> Organization:
     return _make_org("Test Store B")
 
 
+def make_member(org: Organization, role: Role, email: str | None = None) -> User:
+    """Create a user with a role in `org` (password: TEST_PASSWORD)."""
+    with SessionLocal() as db:
+        user = User(
+            email=email or f"{role.value}-{uuid.uuid4().hex[:8]}@example.com",
+            full_name=f"Test {role.value}",
+            password_hash=hash_password(TEST_PASSWORD),
+        )
+        db.add(user)
+        db.flush()
+        db.add(Membership(user_id=user.id, organization_id=org.id, role=role.value))
+        db.commit()
+        return user
+
+
+def auth_headers(org: Organization, role: Role) -> dict[str, str]:
+    """Sign in a fresh member of `org` with `role` and return its Authorization header."""
+    user = make_member(org, role)
+    with SessionLocal() as db:
+        _, token = login(db, LoginRequest(email=user.email, password=TEST_PASSWORD))
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture
 def headers(org: Organization) -> dict[str, str]:
-    return {"X-Organization-Id": str(org.id)}
+    """Signed in as the owner of `org`."""
+    return auth_headers(org, Role.OWNER)
 
 
 @pytest.fixture
 def other_headers(other_org: Organization) -> dict[str, str]:
-    return {"X-Organization-Id": str(other_org.id)}
+    """Signed in as the owner of a different organization."""
+    return auth_headers(other_org, Role.OWNER)
 
 
 @pytest.fixture

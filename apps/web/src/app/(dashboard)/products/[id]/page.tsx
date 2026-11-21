@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Panel } from "@/components/dashboard/panel";
 import { StockBadge } from "@/components/dashboard/stock-badge";
+import { RoleNotice } from "@/components/auth/role-notice";
 import { ApiErrorState } from "@/components/products/api-error-state";
 import { ArchiveProductButton } from "@/components/products/archive-product-button";
 import { MovementHistory } from "@/components/products/movement-history";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, ApiUnavailableError } from "@/lib/api/client";
 import { getProduct, listMovements } from "@/lib/api/products";
+import { canManageInventory, getCurrentUser } from "@/lib/auth/current-user";
 import type { Product } from "@/lib/api/types";
 import { formatNumber, formatPeso, formatPercent } from "@/lib/format";
 
@@ -41,13 +43,15 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
   const { id } = await params;
   let product: Product;
   let movements;
+  let me;
   try {
-    [product, movements] = await Promise.all([getProduct(id), listMovements(id)]);
+    [product, movements, me] = await Promise.all([getProduct(id), listMovements(id), getCurrentUser()]);
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 422)) notFound();
     if (error instanceof ApiUnavailableError) return <ApiErrorState retryHref={`/products/${id}`} />;
     throw error;
   }
+  const canManage = canManageInventory(me.role);
 
   return (
     <>
@@ -60,7 +64,7 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
             {!product.is_active && <span className="ml-2 font-medium text-warning">Archived</span>}
           </p>
         </div>
-        {product.is_active && (
+        {product.is_active && canManage && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
               <Link href={`/products/${product.id}/edit`}>
@@ -90,7 +94,11 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
             </div>
             <div className="border-t border-border px-4 py-4 sm:px-5">
               <h3 className="mb-3 font-semibold">Adjust stock</h3>
-              <StockAdjustForm product={product} />
+              {canManage ? (
+                <StockAdjustForm product={product} />
+              ) : (
+                <RoleNotice>Only owners and managers can change stock. Sales will update it automatically.</RoleNotice>
+              )}
             </div>
           </Panel>
 

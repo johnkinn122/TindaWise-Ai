@@ -30,6 +30,12 @@ test("planned modules say they are planned", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Suppliers is planned" })).toBeVisible();
 });
 
+test("the top bar shows the signed-in store and person", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("banner").getByText("Aling Nena's Mini-Mart (sample)")).toBeVisible();
+  await expect(page.getByRole("button", { name: "NS: Account, Nena Santos, Owner" })).toBeVisible();
+});
+
 test("dark mode toggle switches theme and is remembered", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");

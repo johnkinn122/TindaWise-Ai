@@ -67,8 +67,16 @@ src/
 - **Sample data is quarantined.** All demo numbers live in `src/lib/sample-data.ts`, and every screen
   using them shows a "Sample data" badge. This follows the rule never to present invented analytics as real.
 - **The browser never talks to the API directly.** Server Components read through `lib/api/*`
-  (marked `server-only`) and Server Actions write through it. `API_URL` and the temporary
-  organization id live in `.env.local` without a `NEXT_PUBLIC_` prefix, so they never reach the client.
+  (marked `server-only`) and Server Actions write through it. `API_URL` lives in `.env.local`
+  without a `NEXT_PUBLIC_` prefix, so it never reaches the client.
+- **Sessions:** the API token sits in an httpOnly, SameSite=Lax cookie (`tw_session`, Secure in
+  production) that page scripts can't read. `apiFetch` forwards it as a Bearer token; a 401 sends the
+  person to `/login?reason=session`. `src/proxy.ts` redirects signed-out visitors to `/login?next=…`
+  before rendering (an optimistic check only; the API is the real gate). `next` is validated so it
+  can only point inside the app (no open redirects).
+- **Who is signed in** comes from `getCurrentUser()` (React `cache`, one `/auth/me` call per request),
+  always read inside `<Suspense>`, so the shell still prerenders. Role-aware UI hides actions a role
+  can't take, but the API enforces the same rules.
 - **Pages are Partial Prerenders.** With Cache Components on, each Products page ships a static shell
   (header, panel frames, skeletons) and streams API data inside `<Suspense>`. Client hooks that read
   the URL (`usePathname`, `useSearchParams`) also sit inside Suspense boundaries.
@@ -96,23 +104,24 @@ src/
 ```
 app/
 ├── api/          HTTP only: routes, query params, status codes. No business rules.
-│   ├── deps.py   DB session + current organization (temporary dev header, refused in production)
-│   └── v1/       categories.py, products.py
+│   ├── deps.py   DB session, signed-in session (Bearer token), role checks
+│   └── v1/       auth.py, members.py, categories.py, products.py
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
+│   ├── auth.py        sign-up, sign-in, sessions, team membership
 │   ├── products.py    product + category rules, org-scoped queries
 │   └── inventory.py   the ONLY place stock changes
 ├── models/       SQLAlchemy tables
 ├── schemas/      Pydantic request/response shapes
-├── core/         settings, domain errors → JSON error shape
+├── core/         settings, password + token hashing, domain errors → JSON error shape
 └── db/           engine, session, declarative base
 ```
 
 ### Data model
 
 ```
-organizations ─┬─< categories
-               ├─< products ──< stock_movements (append-only ledger)
-               └─< stock_movements
+users ─┬─< memberships >─ organizations ─┬─< categories
+       │   (role: owner/manager/cashier) ├─< products ──< stock_movements (append-only ledger)
+       └─< sessions (token hash only)    └─< stock_movements.created_by_user_id → users
 ```
 
 - **Organization isolation:** every query filters by `organization_id`. A record from another
@@ -126,12 +135,35 @@ organizations ─┬─< categories
   unique constraint per organization. A replay returns the original movement with HTTP 200.
 - **Nothing is hard-deleted:** products are archived (`is_active = false`); movements are never edited.
 
+### Authentication and roles
+
+- **API-owned sessions.** `POST /auth/login` returns a random 256-bit token once; the database stores
+  only its SHA-256 hash, so a database leak doesn't hand out working sessions. Sessions expire after
+  30 days and are revoked on sign-out.
+- **Passwords** are hashed with Argon2id (`argon2-cffi`) and rehashed when parameters change.
+  Unknown emails still run a hash check, and every failure returns the same message, so responses
+  don't reveal which emails have accounts.
+- **The organization comes from the session**, never from the request. Every endpoint except
+  sign-up and sign-in requires `Authorization: Bearer <token>`.
+- **Roles are checked on the server** for every request (`require_roles` dependency):
+
+  | Action | Owner | Manager | Cashier |
+  |---|---|---|---|
+  | View products, stock, history | ✅ | ✅ | ✅ |
+  | Add / edit / archive products, adjust stock, add categories | ✅ | ✅ | — |
+  | Manage the team | ✅ | — | — |
+
+- **Audit:** every stock movement records `created_by_user_id`.
+- **Team:** owners add managers/cashiers with a temporary password. An email that already has an
+  account is refused rather than attached, so nobody can pull another person's account into a store.
+
 ### Known limitations
 
-- **No authentication yet.** The `X-Organization-Id` header is a development stand-in and is
-  refused when `ENVIRONMENT=production`.
+- No rate limiting on sign-in yet (needs Redis; planned).
+- No password reset, email verification, or switching between stores yet.
 - Quantities are whole units (no fractional kilos or liters yet).
-- No audit log of *who* made a change yet (needs users first).
+- Windows: `uvicorn --reload` can leave an orphaned worker that keeps port 8000 open with old code.
+  If new endpoints return 404, stop every `python … uvicorn` / `multiprocessing` process and restart.
 
 ## Testing and CI
 

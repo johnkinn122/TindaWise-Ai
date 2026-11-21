@@ -54,8 +54,6 @@ export interface ReorderSuggestion {
   supplier: string;
 }
 
-export const sampleStoreName = "Aling Nena's Mini-Mart";
-
 export const sampleKpis: Kpi[] = [
   { id: "sales", label: "Sales today", value: "₱18,420", change: "12% vs last Friday", trend: "up" },
   { id: "transactions", label: "Transactions", value: "214", change: "9% vs last Friday", trend: "up" },

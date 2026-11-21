@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { MovementReason, Product } from "@/lib/api/types";
 import { adjustmentReasons } from "@/lib/products";
 import { cn } from "@/lib/utils";
-import { FormField } from "./form-field";
+import { FormField } from "@/components/forms/form-field";
 
 const initialState: FormState = { status: "idle" };
 

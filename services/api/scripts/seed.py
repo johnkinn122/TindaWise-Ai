@@ -3,20 +3,34 @@
 Usage (from services/api):  python -m scripts.seed
 
 Everything created here is sample data for building and testing the UI. Prices are rough,
-illustrative shelf prices, not real supplier quotes. Safe to run more than once: if the demo
-organization already exists, nothing is changed.
+illustrative shelf prices, not real supplier quotes. Safe to run more than once: existing
+records are left alone, and missing demo accounts are added.
+
+The demo accounts below are for local development and CI only. Their passwords are public
+(they're in this file), so never create them on a server that real people use.
 """
 
 import uuid
 from decimal import Decimal
 
+from sqlalchemy import select
+
+from app.core.security import hash_password
 from app.db.session import SessionLocal
-from app.models import Category, Organization
+from app.models import Category, Membership, Organization, Role, User
 from app.schemas.product import ProductCreate
 from app.services.products import create_product
 
 # Fixed id so the web app's .env can point at the demo store.
 DEMO_ORG_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+
+# Emails use example.com, a domain reserved for documentation (RFC 2606).
+DEMO_ACCOUNTS = [
+    ("Nena Santos", "owner@example.com", Role.OWNER),
+    ("Joy Reyes", "manager@example.com", Role.MANAGER),
+    ("Carlo Dizon", "cashier@example.com", Role.CASHIER),
+]
+DEMO_PASSWORD = "tindawise-demo"
 
 CATEGORIES = ["Beverages", "Canned goods", "Condiments", "Dairy", "Household", "Noodles", "Snacks"]
 
@@ -44,10 +58,24 @@ PRODUCTS = [
 ]
 
 
+def seed_accounts(db) -> None:
+    for full_name, email, role in DEMO_ACCOUNTS:
+        if db.scalar(select(User).where(User.email == email)):
+            continue
+        user = User(email=email, full_name=full_name, password_hash=hash_password(DEMO_PASSWORD))
+        db.add(user)
+        db.flush()
+        db.add(Membership(user_id=user.id, organization_id=DEMO_ORG_ID, role=role.value))
+        print(f"Added demo {role.value}: {email}")
+    db.commit()
+
+
 def main() -> None:
     with SessionLocal() as db:
         if db.get(Organization, DEMO_ORG_ID):
-            print(f"Demo organization already exists ({DEMO_ORG_ID}). Nothing to do.")
+            print(f"Demo organization already exists ({DEMO_ORG_ID}). Products left as they are.")
+            seed_accounts(db)
+            print_logins()
             return
 
         org = Organization(id=DEMO_ORG_ID, name="Aling Nena's Mini-Mart (sample)", currency="PHP")
@@ -74,6 +102,14 @@ def main() -> None:
                 ),
             )
         print(f"Seeded demo organization {DEMO_ORG_ID} with {len(PRODUCTS)} sample products.")
+        seed_accounts(db)
+        print_logins()
+
+
+def print_logins() -> None:
+    print(f"Demo sign-ins (password for all: {DEMO_PASSWORD}):")
+    for _, email, role in DEMO_ACCOUNTS:
+        print(f"  {role.value:<8} {email}")
 
 
 if __name__ == "__main__":

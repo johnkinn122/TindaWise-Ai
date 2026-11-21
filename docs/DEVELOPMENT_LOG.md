@@ -4,6 +4,35 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Sign-in, sessions and roles (`feature/auth-roles`)
+
+### Built
+- API: users, memberships (owner/manager/cashier) and sessions tables (migration 2); sign-up,
+  sign-in, sign-out, `/auth/me`; team endpoints (owner only); role checks on every write endpoint;
+  stock movements record who made them.
+- Removed the temporary `X-Organization-Id` header everywhere: the organization now comes from the session.
+- Web: `/login` and `/signup`, httpOnly session cookie, `proxy.ts` redirect for signed-out visitors,
+  top bar with the real store name and an account menu (Team, Sign out), role-aware Products pages,
+  and a Team page where owners add managers and cashiers.
+- Seed: demo owner, manager and cashier accounts (local/CI only, public password).
+
+### Verified
+- pytest 44/44 (17 new: hashing, uniform login errors, expiry, revocation, roles, team, audit).
+- Vitest 35/35, Playwright 44/44 (twice), including sign-in redirect, wrong password, sign-up,
+  sign-out, cashier restrictions, team flow, and axe on `/login`, `/signup`, `/settings/team`.
+- Web build passes without any environment variables.
+
+### Bugs found and fixed
+- axe: the account button showed "NS" but was named "Account: …" (WCAG 2.5.3 Label in Name).
+  The name now starts with the initials.
+- A test matched Next.js's own route announcer (`role="alert"`); scoped to `<main>`.
+- Local only: an orphaned uvicorn worker kept serving old code on port 8000 (documented).
+
+### Known issues / open items
+- No sign-in rate limiting, password reset, email verification, or store switching yet.
+
+---
+
 ## 2026-11-22 — Fix: CI build failed without API settings (`fix/ci-build-without-env`)
 
 ### What happened

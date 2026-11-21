@@ -129,7 +129,9 @@ def _duplicate_error(exc: IntegrityError) -> ConflictError:
     return ConflictError("This product conflicts with an existing record.")
 
 
-def create_product(db: Session, org: Organization, data: ProductCreate) -> Product:
+def create_product(
+    db: Session, org: Organization, data: ProductCreate, *, created_by: uuid.UUID | None = None
+) -> Product:
     if data.category_id:
         _require_category(db, org.id, data.category_id)
 
@@ -155,6 +157,7 @@ def create_product(db: Session, org: Organization, data: ProductCreate) -> Produ
                 product=product,
                 quantity_change=data.initial_stock,
                 reason=MovementReason.INITIAL,
+                created_by=created_by,
             )
         db.commit()
     except IntegrityError as exc:

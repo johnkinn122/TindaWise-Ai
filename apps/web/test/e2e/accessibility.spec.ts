@@ -12,7 +12,7 @@ function summarize(violations: Awaited<ReturnType<AxeBuilder["analyze"]>>["viola
   }));
 }
 
-const pages = ["/", "/products", "/products/new", "/suppliers"];
+const pages = ["/", "/products", "/products/new", "/suppliers", "/settings/team"];
 
 for (const theme of ["light", "dark"] as const) {
   for (const path of pages) {
@@ -40,3 +40,18 @@ for (const theme of ["light", "dark"] as const) {
     expect(summarize(results.violations)).toEqual([]);
   });
 }
+
+test.describe("signed out", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+  for (const theme of ["light", "dark"] as const) {
+    for (const path of ["/login", "/signup"]) {
+      test(`${path} has no detectable WCAG A/AA violations (${theme})`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
+        await page.goto(path);
+        await page.waitForLoadState("networkidle");
+        const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+        expect(summarize(results.violations)).toEqual([]);
+      });
+    }
+  }
+});

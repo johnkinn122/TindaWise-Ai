@@ -1,9 +1,5 @@
 """One organization must never see or change another organization's data."""
 
-import uuid
-
-from app.core.config import get_settings
-
 
 def test_other_org_cannot_see_or_touch_products(client, headers, other_headers, make_product):
     product = make_product()
@@ -39,14 +35,6 @@ def test_same_sku_is_allowed_in_different_orgs(client, headers, other_headers):
     assert client.post("/api/v1/products", json=payload, headers=other_headers).status_code == 201
 
 
-def test_unknown_or_missing_organization(client):
-    assert client.get("/api/v1/products").status_code == 422
-    unknown = {"X-Organization-Id": str(uuid.uuid4())}
-    assert client.get("/api/v1/products", headers=unknown).status_code == 404
-
-
-def test_production_refuses_the_development_header(client, headers, monkeypatch):
-    monkeypatch.setattr(get_settings(), "environment", "production")
-    response = client.get("/api/v1/products", headers=headers)
-    assert response.status_code == 501
-    assert response.json()["error"]["code"] == "not_configured"
+def test_the_old_organization_header_grants_nothing(client, org):
+    response = client.get("/api/v1/products", headers={"X-Organization-Id": str(org.id)})
+    assert response.status_code == 401
