@@ -1,5 +1,6 @@
 import "server-only";
 
+import { connection } from "next/server";
 import type { ApiErrorBody } from "./types";
 
 /**
@@ -48,6 +49,9 @@ interface RequestOptions {
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  // API data is always per-request. This tells Next.js to stop prerendering here, so the build
+  // never needs API_URL or a running API (the Suspense fallback ships in the static shell instead).
+  await connection();
   const { baseUrl, orgId } = config();
   const url = new URL(`${baseUrl}/api/v1${path}`);
   for (const [key, value] of Object.entries(options.query ?? {})) {

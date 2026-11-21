@@ -4,6 +4,28 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Fix: CI build failed without API settings (`fix/ci-build-without-env`)
+
+### What happened
+The first CI run on `main` failed in the web build. `/products/new` loads categories without
+reading the URL, so Next.js tried to prerender it, and `apiFetch` threw because `API_URL` wasn't
+set. It passed locally only because `.env.local` existed. The API job passed; e2e was skipped.
+
+### Fix
+- `apiFetch` now calls `await connection()` first, which tells Next.js that API data is per-request.
+  Prerendering stops there and the Suspense fallback goes into the static shell, so the build no
+  longer needs the API or its settings.
+- CI keeps building without `API_URL`, which now guards against this regression.
+- GitHub Actions bumped to v7 (checkout, setup-node, setup-python, upload-artifact), which run on
+  Node 24, removing the Node 20 deprecation warning.
+
+### Verified
+- Local build with `.env.local` removed: passes (reproduced the failure first).
+- Vitest 23/23, Playwright 26/26, typecheck and lint clean.
+- **The CI e2e job has never run yet** (it was skipped). It runs for the first time on this PR.
+
+---
+
 ## 2026-11-22 — Testing and CI (`chore/testing-ci`, based on `feature/products-ui`)
 
 ### Built
