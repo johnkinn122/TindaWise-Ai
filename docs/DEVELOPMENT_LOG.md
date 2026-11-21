@@ -4,6 +4,37 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Testing and CI (`chore/testing-ci`, based on `feature/products-ui`)
+
+### Built
+- Vitest + Testing Library: 23 unit/component tests (formatters, URL guards, API client, components).
+- Playwright: 26 end-to-end tests on desktop and a Pixel 7 profile, including the full product
+  lifecycle against the real API, form errors, filters, navigation, the mobile drawer, and axe-core
+  WCAG 2.2 AA checks in light and dark mode.
+- GitHub Actions CI with web, api and e2e jobs.
+- Root scripts: `test:web`, `test:e2e`, `test:api`, `lint:api` (cross-platform `scripts/api.mjs`).
+- Root `README.md`.
+
+### Verified (locally, Windows)
+- Vitest 23/23, Playwright 26/26 (run twice, no flakes), pytest 27/27, Ruff, ESLint, TypeScript, build.
+- **Not yet verified:** the CI workflow itself. It runs for the first time when this branch is pushed.
+
+### Bugs found by the new tests
+- **Contrast:** the shadcn `destructive` button (red on light red) measured 4.38:1. Now red text on the
+  card surface (5.4:1).
+- **Duplicate ids:** hidden pages kept by Cache Components could duplicate fixed ids like `quantity`,
+  so a label could point at a hidden input. Switched to `useId()`.
+- **Stale search box:** after archiving and returning to `/products`, the box still showed the old
+  query while the list was unfiltered. It now resyncs from the URL.
+- **Stale form values:** "Add product" kept the previous product's values after a create. The form
+  now resets when hidden.
+
+### Known issues / open items
+- E2E runs locally against the development database and leaves archived `E2E test product …` rows.
+- axe-core finds a subset of accessibility problems; a manual screen-reader pass is still needed.
+
+---
+
 ## 2026-11-22 — Products UI (`feature/products-ui`, based on `feature/api-foundation`)
 
 ### Built

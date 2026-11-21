@@ -1,0 +1,88 @@
+# Tindawise AI
+
+A retail operations platform for small and medium stores in the Philippines: products, stock,
+and (planned) sales, suppliers, demand forecasting and an AI business copilot.
+
+> **Status:** early development. Built so far: the web app shell, a Products module connected
+> to a real API, and an inventory ledger that prevents overselling. The Overview dashboard uses
+> labeled sample data. Everything else is planned; see [Roadmap](#roadmap).
+
+## What works today
+
+- **Products:** search, filter by stock status and category, sort, paginate, add, edit, archive.
+- **Inventory:** stock adjustments with reasons (received, returned, damaged, sold, count correction)
+  and a full stock history per product.
+- **Safety:** stock can't go below zero even with simultaneous sales (row locks + database checks),
+  retried requests are applied once (idempotency keys), and money is stored as exact decimals.
+- **Accessibility:** WCAG 2.2 AA checks run automatically in light and dark mode.
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Web | Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS v4, shadcn/ui, Recharts |
+| API | FastAPI, Pydantic v2, SQLAlchemy 2.1, Alembic, Python 3.13 |
+| Database | PostgreSQL 17 + pgvector (Docker) |
+| Tests | Vitest, Testing Library, Playwright + axe-core, pytest, Ruff, ESLint |
+| CI | GitHub Actions |
+
+## Run it locally
+
+Requirements: Node 22+, Python 3.13, Docker.
+
+```bash
+# 1. Database
+docker compose -f infrastructure/docker-compose.yml up -d
+
+# 2. API (first time only; see services/api/README.md)
+cd services/api
+py -3.13 -m venv .venv                 # macOS/Linux: python3.13 -m venv .venv
+.venv/Scripts/python -m pip install -e ".[dev]"   # macOS/Linux: .venv/bin/python
+cp .env.example .env
+.venv/Scripts/alembic upgrade head
+.venv/Scripts/python -m scripts.seed   # sample store with 17 sample products
+cd ../..
+
+# 3. Web
+npm install
+cp apps/web/.env.example apps/web/.env.local
+
+# 4. Start both (two terminals)
+npm run dev:api    # http://localhost:8000/docs
+npm run dev:web    # http://localhost:3000
+```
+
+## Checks
+
+| Command | What it runs |
+|---|---|
+| `npm run typecheck:web` | Route type generation + TypeScript |
+| `npm run lint:web` | ESLint |
+| `npm run test:web` | Vitest unit and component tests |
+| `npm run test:e2e` | Production build + Playwright (needs the database running) |
+| `npm run lint:api` | Ruff lint + format check |
+| `npm run test:api` | pytest on a real PostgreSQL test database |
+
+CI runs all of them on every pull request.
+
+## Repository layout
+
+```
+apps/web/          Next.js frontend
+services/api/      FastAPI backend
+infrastructure/    docker-compose for local services
+design-system/     Design rules (MASTER.md), tokens, visual preview
+docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md
+```
+
+## Roadmap
+
+1. **Core platform** (in progress): ✅ products and inventory · 📋 authentication and roles ·
+   📋 point of sale · 📋 suppliers and purchase orders · 📋 reports
+2. **Machine learning** (planned): demand forecasting, stockout risk, anomaly detection
+3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
+4. **Deployment** (planned)
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions and
+[`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) for what was built, how it was verified,
+and known issues.

@@ -75,7 +75,7 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
 
       <div className="grid items-start gap-5 lg:grid-cols-12">
         <div className="grid min-w-0 gap-5 lg:col-span-7">
-          <Panel id="product-stock" title="Stock">
+          <Panel title="Stock">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-5">
               <p>
                 <span className="tabular font-display text-kpi font-semibold">
@@ -94,7 +94,7 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
             </div>
           </Panel>
 
-          <Panel id="product-history" title="Stock history">
+          <Panel title="Stock history">
             <MovementHistory movements={movements.items} />
             {movements.total > movements.items.length && (
               <p className="border-t border-border px-4 py-3 text-[0.8125rem] text-muted-foreground sm:px-5">
@@ -105,7 +105,7 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
         </div>
 
         <div className="min-w-0 lg:col-span-5">
-          <Panel id="product-details" title="Details">
+          <Panel title="Details">
             <ProductFacts product={product} />
           </Panel>
         </div>

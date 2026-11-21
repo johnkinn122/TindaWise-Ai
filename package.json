@@ -11,7 +11,11 @@
     "build:web": "npm run build --workspace web",
     "lint:web": "npm run lint --workspace web",
     "typecheck:web": "npm run typecheck --workspace web",
-    "dev:api": "node scripts/dev-api.mjs"
+    "dev:api": "node scripts/api.mjs dev",
+    "test:web": "npm run test --workspace web",
+    "test:e2e": "npm run test:e2e --workspace web",
+    "test:api": "node scripts/api.mjs test",
+    "lint:api": "node scripts/api.mjs lint"
   },
   "engines": {
     "node": ">=22"

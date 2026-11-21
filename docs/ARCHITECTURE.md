@@ -12,7 +12,8 @@ tindawise-ai/
 │   ├── api/                 ✅ FastAPI backend: products, categories, inventory ledger
 │   └── ml/                  📋 Forecasting + anomaly detection (scikit-learn, LightGBM)
 ├── packages/                📋 Shared TypeScript types and UI used across apps
-├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); CI and deploy planned
+├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); deploy planned
+├── .github/workflows/       ✅ CI: web, api, e2e jobs
 ├── design-system/           ✅ Design source of truth (MASTER.md, tokens, preview)
 └── docs/                    ✅ Architecture and development log
 ```
@@ -131,6 +132,30 @@ organizations ─┬─< categories
   refused when `ENVIRONMENT=production`.
 - Quantities are whole units (no fractional kilos or liters yet).
 - No audit log of *who* made a change yet (needs users first).
+
+## Testing and CI
+
+| Level | Tool | Where | Covers |
+|---|---|---|---|
+| Unit / component | Vitest + Testing Library (jsdom) | `apps/web/test/unit` | formatters, URL guards, API client errors, components |
+| API | pytest on real PostgreSQL | `services/api/tests` | rules, constraints, concurrency, idempotency, isolation |
+| End-to-end | Playwright (Chromium, desktop + Pixel 7) | `apps/web/test/e2e` | product lifecycle, forms, filters, navigation, mobile drawer |
+| Accessibility | axe-core in Playwright | `apps/web/test/e2e/accessibility.spec.ts` | WCAG 2.2 A/AA rules, light + dark |
+
+`.github/workflows/ci.yml` runs three jobs on every PR: **web** (types, lint, unit, build),
+**api** (Ruff, pytest with a PostgreSQL service), and **e2e** (needs both: migrates and seeds a
+fresh database, then runs Playwright against the production build and the API).
+
+### Cache Components and hidden pages
+
+With Cache Components, Next.js keeps recently visited pages mounted but hidden (React `<Activity>`).
+Consequences handled in the code:
+
+- **Ids must be unique per instance.** Form fields and panels use `useId()`, so a hidden copy of a
+  page can't steal a `<label for>` or `aria-labelledby` target.
+- **State survives navigation.** The product form resets itself when hidden; the search box resyncs
+  from the URL; the stock form doesn't replay an old "Stock updated" message.
+- **Tests use `getByRole`**, which ignores hidden elements, instead of `getByLabel`.
 
 ## ML, agents
 

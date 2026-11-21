@@ -38,7 +38,7 @@ export default function OverviewPage() {
             data={sampleWeeklySales}
             summary="Sales this week are running about 12 percent above last week. Saturday is forecast at 21,000 pesos."
           />
-          <Panel id="stock-watch-title" title="Stock to watch">
+          <Panel title="Stock to watch">
             <StockTable items={sampleStockToWatch} />
           </Panel>
         </div>
