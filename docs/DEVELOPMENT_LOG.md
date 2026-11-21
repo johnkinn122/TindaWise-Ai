@@ -4,6 +4,37 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — API foundation (`feature/api-foundation`)
+
+### Built
+- `infrastructure/docker-compose.yml`: PostgreSQL 17 + pgvector on host port 5433, plus a separate
+  `tindawise_test` database.
+- `services/api`: FastAPI + SQLAlchemy 2.1 + Alembic + Pydantic v2 on Python 3.13.
+- Tables: organizations, categories, products, stock_movements (first Alembic migration).
+- Endpoints for categories, products (list/search/filter/sort/paginate, create, update, archive),
+  stock adjustments with idempotency keys, and stock history.
+- `scripts/seed.py`: a sample store with 17 sample products (barcodes in the GS1 internal "20" range,
+  so they can't match real products).
+
+### Verified
+- `pytest`: 26 passed against real PostgreSQL. This includes 10 concurrent sales on 5 units
+  (exactly 5 succeed), concurrent retries with one idempotency key (applied once), organization
+  isolation, duplicate SKU/barcode, and decimal money.
+- `ruff check` and `ruff format --check`: clean.
+- Manual: `/health`, the filtered product list and `/docs` respond on the seeded database.
+
+### Bugs found by tests
+- `SELECT … FOR UPDATE` failed because the product query eagerly LEFT JOINs its category.
+  Fixed by locking only the product row (`FOR UPDATE OF products`).
+- The seed script inserted categories before their organization (no ORM relationship to order them).
+  Fixed with an explicit flush.
+
+### Known issues / open items
+- No authentication. The development `X-Organization-Id` header is refused in production.
+- Starlette deprecated `httpx` for its TestClient; switched to its successor `httpx2` (by the httpx author, maintained by Pydantic).
+
+---
+
 ## 2026-11-22 — Web foundation (`feature/web-foundation`)
 
 ### Built

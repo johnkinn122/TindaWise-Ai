@@ -9,10 +9,10 @@ tindawise-ai/
 ├── apps/
 │   └── web/                 ✅ Next.js frontend (UI shell + Overview on sample data)
 ├── services/
-│   ├── api/                 📋 FastAPI backend (Pydantic, SQLAlchemy, Alembic)
+│   ├── api/                 ✅ FastAPI backend: products, categories, inventory ledger
 │   └── ml/                  📋 Forecasting + anomaly detection (scikit-learn, LightGBM)
 ├── packages/                📋 Shared TypeScript types and UI used across apps
-├── infrastructure/          📋 Docker, GitHub Actions, deployment config
+├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); CI and deploy planned
 ├── design-system/           ✅ Design source of truth (MASTER.md, tokens, preview)
 └── docs/                    ✅ Architecture and development log
 ```
@@ -64,6 +64,58 @@ src/
 - **AI actions stay inert until approval exists.** The Resibo card's "Create purchase order" is disabled
   until the backend has a human-approval flow (claude.md §9).
 
-## Backend, ML, agents
+## Backend — `services/api`
 
-📋 Not started. See `claude.md` §11–§13 for the planned structure and standards.
+| Concern | Choice | Notes |
+|---|---|---|
+| Framework | FastAPI | Sync endpoints (run in a thread pool); simple to reason about for now |
+| Validation | Pydantic v2 | Money is `Decimal` with 2 places, serialized as a string |
+| Database | PostgreSQL 17 + pgvector (Docker, host port 5433) | pgvector is ready for the AI copilot phase |
+| ORM / migrations | SQLAlchemy 2.1 + Alembic | Constraint naming convention gives stable migration names |
+| Tests / lint | pytest (real PostgreSQL `tindawise_test` DB) + Ruff | Schema is rebuilt from migrations every run |
+
+### Layers
+
+```
+app/
+├── api/          HTTP only: routes, query params, status codes. No business rules.
+│   ├── deps.py   DB session + current organization (temporary dev header, refused in production)
+│   └── v1/       categories.py, products.py
+├── services/     Business rules. Never imports FastAPI; raises domain errors.
+│   ├── products.py    product + category rules, org-scoped queries
+│   └── inventory.py   the ONLY place stock changes
+├── models/       SQLAlchemy tables
+├── schemas/      Pydantic request/response shapes
+├── core/         settings, domain errors → JSON error shape
+└── db/           engine, session, declarative base
+```
+
+### Data model
+
+```
+organizations ─┬─< categories
+               ├─< products ──< stock_movements (append-only ledger)
+               └─< stock_movements
+```
+
+- **Organization isolation:** every query filters by `organization_id`. A record from another
+  organization returns 404, never 403, so its existence isn't revealed.
+- **Money:** `NUMERIC(12,2)` + `CHAR(3)` currency (PHP). Never floats.
+- **Stock:** `products.stock_on_hand` is a cached balance; `stock_movements` records every change
+  with `balance_after`. Both are written in one transaction.
+- **No overselling:** the product row is locked (`SELECT … FOR UPDATE OF products`) before a change,
+  and `CHECK (stock_on_hand >= 0)` backs it up in the database. Tested with 10 concurrent sales on 5 units.
+- **No double-applied retries:** an optional `Idempotency-Key` header is stored on the movement with a
+  unique constraint per organization. A replay returns the original movement with HTTP 200.
+- **Nothing is hard-deleted:** products are archived (`is_active = false`); movements are never edited.
+
+### Known limitations
+
+- **No authentication yet.** The `X-Organization-Id` header is a development stand-in and is
+  refused when `ENVIRONMENT=production`.
+- Quantities are whole units (no fractional kilos or liters yet).
+- No audit log of *who* made a change yet (needs users first).
+
+## ML, agents
+
+📋 Not started. See `claude.md` §7–§9.
