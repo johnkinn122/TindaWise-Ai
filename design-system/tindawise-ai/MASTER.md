@@ -1,7 +1,7 @@
 # Tindawise AI — Design System (MASTER)
 
 > Global source of truth. Page-specific overrides go in `pages/<page>.md` and win over this file.
-> Status: **v0.1 — proposed, awaiting approval.** Nothing here is implemented in app code yet.
+> Status: **v0.1 — in use.** Implemented in `apps/web/src/app/globals.css` (2026-11-22).
 
 ## 1. Design intent
 
