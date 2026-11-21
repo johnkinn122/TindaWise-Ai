@@ -1,6 +1,5 @@
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
-import { sampleStoreName } from "@/lib/sample-data";
 
 /**
  * App shell for every signed-in screen: sidebar + top bar + main content.
@@ -18,8 +17,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/">) {
       <div className="flex min-h-dvh">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* TODO(auth): replace with the signed-in user's organization name. */}
-          <TopBar storeName={sampleStoreName} />
+          <TopBar />
           <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 p-4 outline-none sm:p-6">
             {children}
           </main>

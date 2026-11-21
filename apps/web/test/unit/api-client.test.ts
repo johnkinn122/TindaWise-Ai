@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, ApiUnavailableError, apiFetch } from "@/lib/api/client";
 
-// connection() needs a Next.js request scope; in unit tests there is none.
-vi.mock("next/server", () => ({ connection: vi.fn(async () => undefined) }));
-
-const ORG = "00000000-0000-4000-8000-000000000001";
+// No Next.js request scope in unit tests: stand in for the session cookie.
+const session = vi.hoisted(() => ({ token: "session-token" as string | undefined }));
+vi.mock("@/lib/auth/session", () => ({ getSessionToken: async () => session.token }));
+vi.mock("@/lib/auth/redirect-to-login", () => ({
+  redirectToLogin: (reason: string) => {
+    throw new Error(`REDIRECT:/login?reason=${reason}`);
+  },
+}));
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -16,18 +20,18 @@ function jsonResponse(status: number, body: unknown) {
 describe("apiFetch", () => {
   beforeEach(() => {
     vi.stubEnv("API_URL", "http://api.test/");
-    vi.stubEnv("TINDAWISE_ORG_ID", ORG);
+    session.token = "session-token";
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("builds the URL, drops empty query values, and sends the organization header", async () => {
+  it("builds the URL, drops empty query values, and forwards the session as a Bearer token", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200, { ok: true }));
 
     await apiFetch("/products", { query: { q: "cola", status: undefined, category_id: "", limit: 20 } });
 
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe("http://api.test/api/v1/products?q=cola&limit=20");
-    expect((init?.headers as Record<string, string>)["X-Organization-Id"]).toBe(ORG);
+    expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer session-token");
     expect(init?.cache).toBe("no-store");
   });
 
@@ -65,8 +69,29 @@ describe("apiFetch", () => {
     await expect(apiFetch("/products/1", { method: "DELETE" })).resolves.toBeUndefined();
   });
 
+  it("sends no Authorization header when signed out", async () => {
+    session.token = undefined;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200, {}));
+    await apiFetch("/auth/login", { method: "POST", body: {} });
+    expect(fetchMock.mock.calls[0]![1]!.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("sends people to sign in when the session has ended", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse(401, { error: { code: "unauthenticated", message: "Sign in", fields: {} } }),
+    );
+    await expect(apiFetch("/products")).rejects.toThrow("REDIRECT:/login?reason=session");
+  });
+
+  it("lets the sign-in form handle 401 itself", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse(401, { error: { code: "unauthenticated", message: "Email or password is incorrect.", fields: {} } }),
+    );
+    await expect(apiFetch("/auth/login", { onUnauthenticated: "throw" })).rejects.toBeInstanceOf(ApiError);
+  });
+
   it("fails loudly when configuration is missing", async () => {
     vi.stubEnv("API_URL", "");
-    await expect(apiFetch("/products")).rejects.toThrow(/API_URL and TINDAWISE_ORG_ID must be set/);
+    await expect(apiFetch("/products")).rejects.toThrow(/API_URL must be set/);
   });
 });

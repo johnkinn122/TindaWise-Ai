@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentOrg, DbSession
+from app.api.deps import CanManageInventory, CurrentOrg, DbSession
 from app.schemas.category import CategoryCreate, CategoryRead
 from app.services import products as service
 
@@ -13,5 +13,5 @@ def list_categories(db: DbSession, org: CurrentOrg):
 
 
 @router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
-def create_category(data: CategoryCreate, db: DbSession, org: CurrentOrg):
-    return service.create_category(db, org.id, data)
+def create_category(data: CategoryCreate, db: DbSession, auth: CanManageInventory):
+    return service.create_category(db, auth.organization.id, data)

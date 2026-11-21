@@ -41,9 +41,14 @@ class InvalidInputError(DomainError):
     code = "validation_error"
 
 
-class NotConfiguredError(DomainError):
-    status_code = 501
-    code = "not_configured"
+class UnauthenticatedError(DomainError):
+    status_code = 401
+    code = "unauthenticated"
+
+
+class ForbiddenError(DomainError):
+    status_code = 403
+    code = "forbidden"
 
 
 def _error_body(code: str, message: str, fields: dict[str, str] | None = None) -> dict:

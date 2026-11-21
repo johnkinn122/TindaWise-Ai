@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { RoleNotice } from "@/components/auth/role-notice";
 import { ApiErrorState } from "@/components/products/api-error-state";
 import { ProductForm } from "@/components/products/product-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, ApiUnavailableError } from "@/lib/api/client";
 import { getProduct, listCategories } from "@/lib/api/products";
+import { canManageInventory, getCurrentUser } from "@/lib/auth/current-user";
 import { updateProductAction } from "../../actions";
 
 export const metadata: Metadata = {
@@ -28,6 +30,10 @@ export default function EditProductPage({ params }: PageProps<"/products/[id]/ed
 
 async function EditProductForm({ params }: { params: PageProps<"/products/[id]/edit">["params"] }) {
   const { id } = await params;
+  const me = await getCurrentUser();
+  if (!canManageInventory(me.role)) {
+    return <RoleNotice>Only owners and managers can edit products.</RoleNotice>;
+  }
   let product;
   let categories;
   try {

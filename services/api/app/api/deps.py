@@ -1,37 +1,54 @@
 """Request dependencies shared by every endpoint."""
 
-import uuid
+from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.errors import NotConfiguredError, NotFoundError
+from app.core.errors import ForbiddenError, UnauthenticatedError
 from app.db.session import get_db
-from app.models import Organization
+from app.models import Organization, Role
+from app.services.auth import AuthContext, resolve_session
 
 DbSession = Annotated[Session, Depends(get_db)]
 
+_bearer = HTTPBearer(auto_error=False, description="Session token from /api/v1/auth/login")
 
-def get_current_org(
+
+def get_auth(
     db: DbSession,
-    x_organization_id: Annotated[uuid.UUID, Header(description="Development only")],
-) -> Organization:
-    """Resolve which organization this request acts for.
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> AuthContext:
+    """Every protected endpoint starts here: no valid session, no access."""
+    if credentials is None or not credentials.credentials:
+        raise UnauthenticatedError("Sign in to continue.")
+    return resolve_session(db, credentials.credentials)
 
-    TEMPORARY — authentication is not built yet. Until it is, development and tests pass the
-    organization id in the `X-Organization-Id` header. That header is trivially spoofable, so in
-    production this dependency refuses every request instead of trusting it. When auth lands,
-    only this function changes: it will read the organization from the signed-in user's session.
-    """
-    if get_settings().environment == "production":
-        raise NotConfiguredError("Authentication is not configured yet.")
 
-    org = db.get(Organization, x_organization_id)
-    if org is None:
-        raise NotFoundError("Organization not found.")
-    return org
+Auth = Annotated[AuthContext, Depends(get_auth)]
+
+
+def get_current_org(auth: Auth) -> Organization:
+    """The organization comes from the signed-in session, never from the request."""
+    return auth.organization
 
 
 CurrentOrg = Annotated[Organization, Depends(get_current_org)]
+
+
+def require_roles(*roles: Role) -> Callable[[AuthContext], AuthContext]:
+    """Dependency factory: allow only these roles. Checked on the server for every request."""
+
+    def check(auth: Auth) -> AuthContext:
+        if not auth.has_role(*roles):
+            raise ForbiddenError("Your role doesn't allow this. Ask your store owner.")
+        return auth
+
+    return check
+
+
+# Reusable permission levels.
+CanManageInventory = Annotated[AuthContext, Depends(require_roles(Role.OWNER, Role.MANAGER))]
+CanManageTeam = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]

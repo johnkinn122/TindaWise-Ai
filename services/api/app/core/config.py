@@ -16,6 +16,7 @@ class Settings(BaseSettings):
         "postgresql+psycopg://tindawise:tindawise_dev@localhost:5433/tindawise_test"
     )
     cors_origins: str = Field(default="http://localhost:3000")
+    session_ttl_days: int = 30
 
     @property
     def cors_origin_list(self) -> list[str]:

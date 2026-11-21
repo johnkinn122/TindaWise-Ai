@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiUnavailableError } from "@/lib/api/client";
 import { listCategories, listProducts, PRODUCTS_PAGE_SIZE } from "@/lib/api/products";
+import { canManageInventory, getCurrentUser } from "@/lib/auth/current-user";
 import { isProductSort, isStockStatus } from "@/lib/products";
 
 export const metadata: Metadata = {
@@ -25,12 +26,9 @@ export default function ProductsPage({ searchParams }: PageProps<"/products">) {
         title="Products"
         description="Everything you sell, with prices and stock on hand."
         action={
-          <Button size="lg" asChild>
-            <Link href="/products/new">
-              <Plus aria-hidden="true" />
-              Add product
-            </Link>
-          </Button>
+          <Suspense fallback={null}>
+            <AddProductButton />
+          </Suspense>
         }
       />
       <section aria-label="Product list" className="rounded-lg border border-border bg-card">
@@ -39,6 +37,20 @@ export default function ProductsPage({ searchParams }: PageProps<"/products">) {
         </Suspense>
       </section>
     </div>
+  );
+}
+
+/** Only owners and managers see "Add product"; the role is request-time data, hence Suspense. */
+async function AddProductButton() {
+  const me = await getCurrentUser();
+  if (!canManageInventory(me.role)) return null;
+  return (
+    <Button size="lg" asChild>
+      <Link href="/products/new">
+        <Plus aria-hidden="true" />
+        Add product
+      </Link>
+    </Button>
   );
 }
 
@@ -63,10 +75,12 @@ async function ProductsResults({ searchParams }: { searchParams: PageProps<"/pro
 
   let result;
   let categories;
+  let me;
   try {
-    [result, categories] = await Promise.all([
+    [result, categories, me] = await Promise.all([
       listProducts({ q, status, sort, categoryId, page }),
       listCategories(),
+      getCurrentUser(),
     ]);
   } catch (error) {
     if (error instanceof ApiUnavailableError) {
@@ -103,9 +117,13 @@ async function ProductsResults({ searchParams }: { searchParams: PageProps<"/pro
           <p className="mt-1.5 max-w-md text-muted-foreground">
             Products hold the price and stock of everything you sell. Start with your best sellers.
           </p>
-          <Button className="mt-5" asChild>
-            <Link href="/products/new">Add product</Link>
-          </Button>
+          {canManageInventory(me.role) ? (
+            <Button className="mt-5" asChild>
+              <Link href="/products/new">Add product</Link>
+            </Button>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">Ask your store owner or manager to add products.</p>
+          )}
         </div>
       )}
     </>

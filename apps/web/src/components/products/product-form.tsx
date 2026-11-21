@@ -6,7 +6,7 @@ import type { FormState } from "@/app/(dashboard)/products/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Category, Product } from "@/lib/api/types";
-import { FormField } from "./form-field";
+import { FormField } from "@/components/forms/form-field";
 
 type ProductAction = (state: FormState, formData: FormData) => Promise<FormState>;
 

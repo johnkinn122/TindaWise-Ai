@@ -27,9 +27,10 @@ cp .env.example .env
 - Interactive docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
 
-Until authentication exists, every `/api/v1` request needs the header
-`X-Organization-Id: 00000000-0000-4000-8000-000000000001` (the seeded sample store).
-In production that header is refused, so this shortcut can't ship by accident.
+Every `/api/v1` endpoint except sign-up and sign-in needs `Authorization: Bearer <token>`.
+Get a token from `POST /api/v1/auth/login`. The seed creates demo accounts for local use only:
+`owner@example.com`, `manager@example.com`, `cashier@example.com`, all with password
+`tindawise-demo` (public, so never seed a real server with them).
 
 ## Checks
 
@@ -52,6 +53,11 @@ In production that header is refused, so this shortcut can't ship by accident.
 
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/api/v1/auth/signup` | Create an account + store; signs in as owner |
+| POST | `/api/v1/auth/login` | Sign in; returns a session token (shown once) |
+| POST | `/api/v1/auth/logout` | Revoke the current session |
+| GET | `/api/v1/auth/me` | Current user, store and role |
+| GET / POST | `/api/v1/members` | List / add team members (owner only) |
 | GET | `/api/v1/categories` | List categories |
 | POST | `/api/v1/categories` | Create a category |
 | GET | `/api/v1/products` | List products: `q`, `category_id`, `status`, `include_archived`, `sort`, `limit`, `offset` |

@@ -37,3 +37,6 @@ Thumbs.db
 apps/web/test-results/
 apps/web/playwright-report/
 apps/web/blob-report/
+
+# playwright sessions (contain session cookies)
+apps/web/test/e2e/.auth/

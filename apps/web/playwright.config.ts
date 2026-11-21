@@ -23,12 +23,34 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
+    // Signs in as each demo role once and saves the sessions for the projects below.
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "desktop",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
-      testIgnore: /mobile\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        storageState: "test/e2e/.auth/owner.json",
+      },
+      testIgnore: /(mobile|cashier)\.spec\.ts/,
+      dependencies: ["setup"],
     },
-    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /mobile\.spec\.ts/ },
+    {
+      name: "cashier",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        storageState: "test/e2e/.auth/cashier.json",
+      },
+      testMatch: /cashier\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"], storageState: "test/e2e/.auth/owner.json" },
+      testMatch: /mobile\.spec\.ts/,
+      dependencies: ["setup"],
+    },
   ],
   webServer: [
     {
@@ -45,7 +67,6 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         API_URL: process.env.API_URL ?? "http://localhost:8000",
-        TINDAWISE_ORG_ID: process.env.TINDAWISE_ORG_ID ?? "00000000-0000-4000-8000-000000000001",
       },
     },
   ],

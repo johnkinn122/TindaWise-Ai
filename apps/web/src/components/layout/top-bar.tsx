@@ -1,17 +1,23 @@
 import { Search } from "lucide-react";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { canManageTeam, getCurrentUser, roleLabels } from "@/lib/auth/current-user";
 import { MobileNav } from "./mobile-nav";
+import { UserMenu } from "./user-menu";
 
-interface TopBarProps {
-  storeName: string;
-}
-
-export function TopBar({ storeName }: TopBarProps) {
+/**
+ * The bar itself is static (part of the prerendered shell). Only the store name and the account
+ * menu depend on who is signed in, so only they wait behind Suspense.
+ */
+export function TopBar() {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
       <MobileNav />
-      <span className="truncate font-medium">{storeName}</span>
+      <Suspense fallback={<Skeleton className="h-5 w-40" />}>
+        <StoreName />
+      </Suspense>
 
-      {/* Planned: global search (products, sales, suppliers). Disabled until the API exists. */}
+      {/* Planned: global search (products, sales, suppliers). Disabled until it exists. */}
       <div className="ml-auto w-full max-w-sm">
         <label htmlFor="global-search" className="sr-only">
           Search
@@ -31,6 +37,27 @@ export function TopBar({ storeName }: TopBarProps) {
           />
         </div>
       </div>
+
+      <Suspense fallback={<Skeleton className="size-9 shrink-0 rounded-full" />}>
+        <Account />
+      </Suspense>
     </header>
+  );
+}
+
+async function StoreName() {
+  const me = await getCurrentUser();
+  return <span className="truncate font-medium">{me.organization.name}</span>;
+}
+
+async function Account() {
+  const me = await getCurrentUser();
+  return (
+    <UserMenu
+      fullName={me.user.full_name}
+      email={me.user.email}
+      roleLabel={roleLabels[me.role]}
+      canManageTeam={canManageTeam(me.role)}
+    />
   );
 }

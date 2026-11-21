@@ -3,12 +3,14 @@
 A retail operations platform for small and medium stores in the Philippines: products, stock,
 and (planned) sales, suppliers, demand forecasting and an AI business copilot.
 
-> **Status:** early development. Built so far: the web app shell, a Products module connected
-> to a real API, and an inventory ledger that prevents overselling. The Overview dashboard uses
-> labeled sample data. Everything else is planned; see [Roadmap](#roadmap).
+> **Status:** early development. Built so far: sign-in with owner/manager/cashier roles, a
+> Products module connected to a real API, and an inventory ledger that prevents overselling.
+> The Overview dashboard uses labeled sample data. Everything else is planned; see [Roadmap](#roadmap).
 
 ## What works today
 
+- **Accounts:** sign up (creates your store), sign in, sign out; owners add managers and cashiers.
+- **Roles:** owners and managers run products and stock; cashiers can look things up. Enforced by the API.
 - **Products:** search, filter by stock status and category, sort, paginate, add, edit, archive.
 - **Inventory:** stock adjustments with reasons (received, returned, damaged, sold, count correction)
   and a full stock history per product.
@@ -52,6 +54,10 @@ npm run dev:api    # http://localhost:8000/docs
 npm run dev:web    # http://localhost:3000
 ```
 
+Sign in with a demo account from the seed (local only): `owner@example.com`,
+`manager@example.com` or `cashier@example.com`, password `tindawise-demo`. Or create your own
+store at `/signup`.
+
 ## Checks
 
 | Command | What it runs |
@@ -77,7 +83,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md
 
 ## Roadmap
 
-1. **Core platform** (in progress): ✅ products and inventory · 📋 authentication and roles ·
+1. **Core platform** (in progress): ✅ products and inventory · ✅ sign-in and roles ·
    📋 point of sale · 📋 suppliers and purchase orders · 📋 reports
 2. **Machine learning** (planned): demand forecasting, stockout risk, anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval

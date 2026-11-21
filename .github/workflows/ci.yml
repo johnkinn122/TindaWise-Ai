@@ -85,10 +85,9 @@ jobs:
           --health-cmd "pg_isready -U tindawise"
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
-      ENVIRONMENT: development # the dev organization header is needed until auth exists
+      ENVIRONMENT: test
       DATABASE_URL: postgresql+psycopg://tindawise:tindawise_ci@localhost:5432/tindawise
       API_URL: http://localhost:8000
-      TINDAWISE_ORG_ID: 00000000-0000-4000-8000-000000000001
     steps:
       - uses: actions/checkout@v7
 
@@ -97,7 +96,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: services/api/pyproject.toml
-      - name: Set up the API (venv, migrations, sample store)
+      - name: Set up the API (venv, migrations, sample store and demo accounts)
         working-directory: services/api
         run: |
           python -m venv .venv
