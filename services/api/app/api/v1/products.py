@@ -45,6 +45,16 @@ def list_products(
     return Page(items=items, total=total, limit=limit, offset=offset)
 
 
+@router.get("/lookup", response_model=ProductRead)
+def lookup_product(
+    db: DbSession,
+    org: CurrentOrg,
+    code: Annotated[str, Query(min_length=1, max_length=64, description="Barcode or SKU")],
+):
+    """Exact match for a scanned barcode (or typed SKU). 404 when nothing matches."""
+    return service.lookup_product(db, org.id, code)
+
+
 @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
 def create_product(data: ProductCreate, db: DbSession, auth: CanManageInventory):
     return service.create_product(db, auth.organization, data, created_by=auth.user.id)

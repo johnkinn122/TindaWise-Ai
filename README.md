@@ -3,14 +3,16 @@
 A retail operations platform for small and medium stores in the Philippines: products, stock,
 and (planned) sales, suppliers, demand forecasting and an AI business copilot.
 
-> **Status:** early development. Built so far: sign-in with owner/manager/cashier roles, a
-> Products module connected to a real API, and an inventory ledger that prevents overselling.
+> **Status:** early development. Built so far: sign-in with owner/manager/cashier roles,
+> Products, Point of Sale, and an inventory ledger that prevents overselling.
 > The Overview dashboard uses labeled sample data. Everything else is planned; see [Roadmap](#roadmap).
 
 ## What works today
 
 - **Accounts:** sign up (creates your store), sign in, sign out; owners add managers and cashiers.
-- **Roles:** owners and managers run products and stock; cashiers can look things up. Enforced by the API.
+- **Roles:** owners and managers run products and stock; everyone can sell. Enforced by the API.
+- **Point of Sale:** scan or search, cart, cash with change or e-wallet reference, printable receipt.
+  Stock drops with every sale, and a sale is all-or-nothing.
 - **Products:** search, filter by stock status and category, sort, paginate, add, edit, archive.
 - **Inventory:** stock adjustments with reasons (received, returned, damaged, sold, count correction)
   and a full stock history per product.
@@ -84,7 +86,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md
 ## Roadmap
 
 1. **Core platform** (in progress): ✅ products and inventory · ✅ sign-in and roles ·
-   📋 point of sale · 📋 suppliers and purchase orders · 📋 reports
+   ✅ point of sale · 📋 suppliers and purchase orders · 📋 reports
 2. **Machine learning** (planned): demand forecasting, stockout risk, anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)

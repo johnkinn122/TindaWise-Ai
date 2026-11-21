@@ -1,4 +1,4 @@
-from sqlalchemy import CHAR, String
+from sqlalchemy import CHAR, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -11,3 +11,8 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     currency: Mapped[str] = mapped_column(CHAR(3), nullable=False, default="PHP")
+    # Last receipt number used. Incremented under a row lock when a sale is recorded, so
+    # numbers are sequential per store with no gaps from concurrent sales.
+    last_receipt_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )

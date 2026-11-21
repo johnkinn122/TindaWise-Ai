@@ -4,6 +4,36 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Point of Sale (`feature/pos`)
+
+### Built
+- API: `sales` and `sale_lines` tables, per-store receipt counter, `stock_movements.sale_id`
+  (migration 3); `POST/GET /sales`, `GET /sales/{id}`, `GET /products/lookup?code=`.
+- Web `/sell`: scan (Enter = exact barcode/SKU) or search, cart with quantity steppers and stock
+  limits, cash with quick amounts and live change, e-wallet with reference, receipt with print
+  layout, phone layout with a sticky total bar.
+- `lib/money.ts`: cart math in integer centavos.
+- `npm run dev:api` now reloads only on changes in `app/`.
+
+### Verified
+- pytest 58/58 (14 new: totals from DB prices, merged duplicate scans, all-or-nothing on short
+  stock, cash rule, e-wallet reference, idempotent retry, per-store receipt sequence, audit links,
+  cashier visibility, isolation, lookup, 8 concurrent checkouts with no oversell or deadlock).
+- Vitest 50/50, Playwright 51/51 (twice), including a cashier's full checkout and the stock drop,
+  short cash, e-wallet, unknown barcode, out-of-stock, and axe on `/sell`.
+- Web build passes without environment variables.
+
+### Found and fixed
+- The dev API watched `.venv`; pytest writes there, so reloads hung on Windows and old code kept
+  serving (the cause of the earlier "orphaned worker" problem). Reload now watches `app/` only.
+- `.next` folder locked during builds (OneDrive sync on Windows); cleared and rebuilt.
+
+### Known issues / open items
+- No VAT, discounts, refunds/voids, or offline mode yet. Overview still shows sample data even though
+  real sales now exist (next: real Overview).
+
+---
+
 ## 2026-11-22 — Sign-in, sessions and roles (`feature/auth-roles`)
 
 ### Built

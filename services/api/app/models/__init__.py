@@ -3,6 +3,7 @@
 from app.models.category import Category
 from app.models.organization import Organization
 from app.models.product import Product
+from app.models.sale import PaymentMethod, Sale, SaleLine
 from app.models.stock_movement import MovementReason, StockMovement
 from app.models.user import AuthSession, Membership, Role, User
 
@@ -12,8 +13,11 @@ __all__ = [
     "Membership",
     "MovementReason",
     "Organization",
+    "PaymentMethod",
     "Product",
     "Role",
+    "Sale",
+    "SaleLine",
     "StockMovement",
     "User",
 ]

@@ -227,3 +227,26 @@
     }
   }
 }
+
+/* ── Printing a receipt: only the receipt, at thermal-printer width ── */
+@media print {
+  @page {
+    margin: 4mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-receipt,
+  .print-receipt * {
+    visibility: visible;
+  }
+  .print-receipt {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 72mm;
+    border: 0;
+    padding: 0;
+    color: #000;
+    background: #fff;
+  }
+}

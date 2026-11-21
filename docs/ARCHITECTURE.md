@@ -45,6 +45,7 @@ src/
 │       ├── page.tsx            "/" Overview (sample data)
 │       ├── error.tsx           Fallback error screen inside the shell
 │       ├── products/           Live: list, /new, /[id] (detail + stock), /[id]/edit, actions.ts
+│       ├── sell/               Live: checkout screen, products/route.ts (lookup for the browser), actions.ts
 │       └── sell|inventory|suppliers|reports/page.tsx   Planned-module placeholders
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
@@ -105,9 +106,10 @@ src/
 app/
 ├── api/          HTTP only: routes, query params, status codes. No business rules.
 │   ├── deps.py   DB session, signed-in session (Bearer token), role checks
-│   └── v1/       auth.py, members.py, categories.py, products.py
+│   └── v1/       auth.py, members.py, categories.py, products.py, sales.py
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
 │   ├── auth.py        sign-up, sign-in, sessions, team membership
+│   ├── sales.py       checkout: prices from the DB, all-or-nothing, receipt numbers
 │   ├── products.py    product + category rules, org-scoped queries
 │   └── inventory.py   the ONLY place stock changes
 ├── models/       SQLAlchemy tables
@@ -121,7 +123,9 @@ app/
 ```
 users ─┬─< memberships >─ organizations ─┬─< categories
        │   (role: owner/manager/cashier) ├─< products ──< stock_movements (append-only ledger)
-       └─< sessions (token hash only)    └─< stock_movements.created_by_user_id → users
+       └─< sessions (token hash only)    ├─< stock_movements.created_by_user_id → users
+                                         └─< sales ──< sale_lines (name/price/cost snapshots)
+                                               └──< stock_movements.sale_id
 ```
 
 - **Organization isolation:** every query filters by `organization_id`. A record from another
@@ -134,6 +138,25 @@ users ─┬─< memberships >─ organizations ─┬─< categories
 - **No double-applied retries:** an optional `Idempotency-Key` header is stored on the movement with a
   unique constraint per organization. A replay returns the original movement with HTTP 200.
 - **Nothing is hard-deleted:** products are archived (`is_active = false`); movements are never edited.
+
+### Checkout (Point of Sale)
+
+- **The server prices the sale.** The client sends product ids and quantities only; prices and
+  costs come from the database. Each line stores a snapshot of name, SKU, unit, price and cost, so
+  old receipts and profit stay correct after prices change.
+- **All or nothing.** Every product in the cart is locked (`FOR UPDATE`, in id order so concurrent
+  checkouts can't deadlock) before stock is checked. If any item is short, nothing is recorded.
+  Tested with 8 concurrent checkouts in different cart orders against 3 units: exactly 3 succeed.
+- **Receipt numbers** (`S-000001`) are sequential per store, taken from
+  `organizations.last_receipt_number` under a row lock.
+- **Payments:** cash (must cover the total; change is computed and stored) or e-wallet (GCash/Maya
+  reference recorded; no payment processing). A CHECK constraint enforces the cash rule in the database.
+- **Retries:** an `Idempotency-Key` per checkout attempt; a replay returns the original sale.
+- **Every role can sell.** Cashiers see only their own sales; owners and managers see all.
+- **Barcode scanners** type the code and press Enter: `GET /products/lookup?code=` matches the
+  barcode exactly, then the SKU case-insensitively.
+- Not yet: VAT computation, discounts, refunds/voids, offline mode, receipt printer integration
+  (printing uses the browser's print dialog with a 72 mm receipt layout).
 
 ### Authentication and roles
 
@@ -162,8 +185,9 @@ users ─┬─< memberships >─ organizations ─┬─< categories
 - No rate limiting on sign-in yet (needs Redis; planned).
 - No password reset, email verification, or switching between stores yet.
 - Quantities are whole units (no fractional kilos or liters yet).
-- Windows: `uvicorn --reload` can leave an orphaned worker that keeps port 8000 open with old code.
-  If new endpoints return 404, stop every `python … uvicorn` / `multiprocessing` process and restart.
+- Windows: `uvicorn --reload` used to watch `.venv` too, so pytest runs triggered reloads that hung
+  and left old code serving port 8000. `npm run dev:api` now passes `--reload-dir app`. If an old
+  server is still around, stop every `python … uvicorn` / `multiprocessing` process and restart.
 
 ## Testing and CI
 

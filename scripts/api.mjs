@@ -16,7 +16,9 @@ if (!existsSync(python)) {
 }
 
 const tasks = {
-  dev: [["-m", "uvicorn", "app.main:app", "--reload", "--port", "8000"]],
+  // --reload-dir app: watch only source code. Watching the whole folder also watches .venv,
+  // which pytest writes to, and on Windows those reloads can hang with the old code running.
+  dev: [["-m", "uvicorn", "app.main:app", "--reload", "--reload-dir", "app", "--port", "8000"]],
   test: [["-m", "pytest", ...process.argv.slice(3)]],
   lint: [
     ["-m", "ruff", "check", "."],

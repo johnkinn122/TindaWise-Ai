@@ -12,7 +12,7 @@ function summarize(violations: Awaited<ReturnType<AxeBuilder["analyze"]>>["viola
   }));
 }
 
-const pages = ["/", "/products", "/products/new", "/suppliers", "/settings/team"];
+const pages = ["/", "/sell", "/products", "/products/new", "/suppliers", "/settings/team"];
 
 for (const theme of ["light", "dark"] as const) {
   for (const path of pages) {
