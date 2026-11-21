@@ -8,9 +8,14 @@ and [`design-system/tindawise-ai/MASTER.md`](../../design-system/tindawise-ai/MA
 From the repository root:
 
 ```bash
-npm install          # once
-npm run dev:web      # http://localhost:3000
+npm install                                    # once
+cp apps/web/.env.example apps/web/.env.local   # once
+npm run dev:api      # API on http://localhost:8000 (see services/api/README.md for first-time setup)
+npm run dev:web      # web on http://localhost:3000
 ```
+
+The Products pages need the API and its database running. Without them, they show a
+"Can't load products" message with a retry button.
 
 ## Checks
 
@@ -22,5 +27,5 @@ npm run build:web
 
 ## Notes
 
-- The Overview screen uses **sample data** from `src/lib/sample-data.ts`. It is labeled in the UI and is not real.
+- The Overview screen still uses **sample data** from `src/lib/sample-data.ts`. It is labeled in the UI and is not real.
 - shadcn components live in `src/components/ui/`. Add more with `npx shadcn@latest add <name>` from this folder.

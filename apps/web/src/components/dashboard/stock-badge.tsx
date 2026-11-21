@@ -1,6 +1,6 @@
 import { Circle, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { StockStatus } from "@/lib/sample-data";
+import type { StockStatus } from "@/lib/api/types";
 
 const statusConfig: Record<StockStatus, { label: string; className: string; Icon: typeof Circle }> = {
   in_stock: { label: "In stock", className: "text-success", Icon: Circle },

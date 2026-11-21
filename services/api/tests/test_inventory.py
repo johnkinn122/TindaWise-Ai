@@ -64,6 +64,14 @@ def test_retried_request_with_same_key_applies_once(client, headers, make_produc
     assert stock_of(client, headers, product["id"]) == 8
 
 
+def test_blank_idempotency_key_is_ignored(client, headers, make_product):
+    product = make_product(initial_stock=10)
+    first = adjust(client, headers, product["id"], -1, "sale", key=" ")
+    second = adjust(client, headers, product["id"], -1, "sale", key=" ")
+    assert (first.status_code, second.status_code) == (201, 201)
+    assert stock_of(client, headers, product["id"]) == 8
+
+
 def test_archived_product_stock_is_frozen(client, headers, make_product):
     product = make_product()
     client.delete(f"/api/v1/products/{product['id']}", headers=headers)
