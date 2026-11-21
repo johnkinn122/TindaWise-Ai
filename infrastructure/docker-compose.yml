@@ -1,0 +1,29 @@
+# Local development services for Tindawise AI.
+# Usage (from repo root):  docker compose -f infrastructure/docker-compose.yml up -d
+#
+# PostgreSQL listens on host port 5433 so it never clashes with a locally installed
+# PostgreSQL on 5432. The image includes pgvector for the planned AI copilot features.
+# Credentials here are for local development only — never reuse them anywhere else.
+
+name: tindawise
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: tindawise
+      POSTGRES_PASSWORD: tindawise_dev
+      POSTGRES_DB: tindawise
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tindawise -d tindawise"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
