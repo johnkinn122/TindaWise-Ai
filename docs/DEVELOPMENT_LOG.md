@@ -4,6 +4,55 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Real Overview (`feature/real-overview`)
+
+### Built
+- API: `GET /api/v1/overview`: today's sales, transactions and gross margin vs the same weekday
+  last week; Sunday–Saturday sales by day; stock to watch; rule-based reorder quantities.
+- `organizations.timezone` (migration 4, default `Asia/Manila`): days are the store's local days.
+- Role rules in the API: cashiers get their own sales only and every cost field as `null`.
+- Web `/`: real data behind Suspense with a skeleton and an "API not reachable" state. The KPI
+  strip, chart and stock table are unchanged in layout. The chart lost its forecast line (no model
+  yet) and its Y-axis now scales to the data. The AI Resibo card is replaced on this page by a plain
+  "Reorder suggestions" panel that states it is a rule, not a forecast (owner's choice).
+- `lib/overview.ts`: KPI wording, comparisons and chart rows as pure, unit-tested functions.
+- `tzdata` declared as an API dependency (Windows has no built-in time zone database).
+
+### Verified
+- pytest 67/67 (9 new: local-day boundary at midnight Manila vs UTC, future days null not 0,
+  margin, cashier scope and hidden costs, manager view, stock ordering and counts, reorder rule,
+  archived products ignored, organization isolation, sign-in required). Ruff clean.
+- Vitest 66/66 (16 new), typecheck and ESLint clean.
+- Playwright 52/52, twice: real figures instead of "Sample data" for the owner, the cashier view
+  (own sales, no margin or cost, no ordering button), and axe on `/`.
+- Manual: screenshots as owner and cashier at 1440px and owner at 390px in dark mode; no console errors.
+
+### Found and fixed
+- Chart: with one day of sales this week, the line was a single point and drew nothing. This
+  week's days now have dots.
+- Flaky e2e test (from `feature/pos`): "an e-wallet sale needs a reference number" clicked the
+  E-wallet radio with `force` right after scanning. Payment stays disabled for about 40 ms until the
+  lookup adds the item, and `force` skips Playwright's enabled check, so the click could be lost.
+  It failed 3 runs out of 3 here. The test now waits for the cart first. The app itself was correct.
+- The dev API's auto-reload hung again on Windows: an old worker process kept the port and served
+  the old code (the new route returned 404). The fix from `feature/pos` (watch only `app/`) did not
+  cover this case: switching branches changes many files at once. Stopping the leftover worker
+  process fixed it. Still open (below).
+- `.next` locked by OneDrive during `npm run build` again; cleared the build output and rebuilt.
+
+### Known issues / open items
+- Gross margin is only as good as product costs: products saved with cost 0 overstate it.
+- Reorder quantities are a simple rule (2 × reorder level or 14 days of sales). Demand forecasting
+  replaces it in the ML phase.
+- No way to change a store's time zone in the UI yet (default `Asia/Manila`).
+- The products API (`GET /products`) still returns `cost` to cashiers. The Overview hides it,
+  but the product endpoints should follow the same rule (separate fix).
+- Windows dev server: after many files change at once, uvicorn's reloader can leave an orphaned
+  worker on :8000. Workaround: stop the leftover `python` process holding the port.
+- The Next.js dev badge covers the sidebar's "Dark mode" button in development only.
+
+---
+
 ## 2026-11-22 — Point of Sale (`feature/pos`)
 
 ### Built

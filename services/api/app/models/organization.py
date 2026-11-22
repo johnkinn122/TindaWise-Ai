@@ -11,6 +11,10 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     currency: Mapped[str] = mapped_column(CHAR(3), nullable=False, default="PHP")
+    # IANA time zone name. Decides where "today" starts and ends for this store's reports.
+    timezone: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="Asia/Manila", server_default="Asia/Manila"
+    )
     # Last receipt number used. Incremented under a row lock when a sale is recorded, so
     # numbers are sequential per store with no gaps from concurrent sales.
     last_receipt_number: Mapped[int] = mapped_column(

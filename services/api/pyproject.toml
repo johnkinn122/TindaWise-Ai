@@ -12,6 +12,7 @@ dependencies = [
     "pydantic[email]>=2.9",  # email-validator for EmailStr
     "pydantic-settings>=2.6",
     "argon2-cffi>=25.1",  # password hashing (Argon2id)
+    "tzdata>=2024.1",  # time zone database for zoneinfo (Windows has none built in)
 ]
 
 [project.optional-dependencies]
