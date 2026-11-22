@@ -1,3 +1,7 @@
+from app.models import Role
+from tests.conftest import auth_headers
+
+
 def test_health(client):
     assert client.get("/health").json() == {"status": "ok", "database": "ok"}
 
@@ -130,3 +134,28 @@ def test_categories(client, headers, make_product):
 
     product = make_product(category_id=created.json()["id"])
     assert product["category"]["name"] == "Noodles"
+
+
+def test_cashiers_never_receive_product_costs(client, org, headers, make_product):
+    product = make_product(name="Sardines", sku="CAN-777", barcode="2000000000777", cost="13.35")
+    cashier = auth_headers(org, Role.CASHIER)
+
+    reads = [
+        client.get("/api/v1/products", headers=cashier).json()["items"][0],
+        client.get("/api/v1/products?q=Sardines", headers=cashier).json()["items"][0],
+        client.get(f"/api/v1/products/{product['id']}", headers=cashier).json(),
+        client.get("/api/v1/products/lookup?code=2000000000777", headers=cashier).json(),
+    ]
+    assert [read["cost"] for read in reads] == [None, None, None, None]
+    assert all(read["price"] == "10.00" for read in reads)  # selling price stays visible
+
+
+def test_owners_and_managers_see_product_costs(client, org, headers, make_product):
+    product = make_product(cost="13.35")
+    manager = auth_headers(org, Role.MANAGER)
+
+    for hdrs in (headers, manager):
+        assert (
+            client.get(f"/api/v1/products/{product['id']}", headers=hdrs).json()["cost"] == "13.35"
+        )
+        assert client.get("/api/v1/products", headers=hdrs).json()["items"][0]["cost"] == "13.35"

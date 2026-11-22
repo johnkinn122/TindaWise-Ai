@@ -122,18 +122,27 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
   );
 }
 
-/** Margin per unit = price − cost; margin % = (price − cost) ÷ price. Computed in centavos to stay exact. */
+/**
+ * Margin per unit = price − cost; margin % = (price − cost) ÷ price. Computed in centavos to stay exact.
+ * Cashiers get no cost from the API, so they see neither cost nor margin.
+ */
 function ProductFacts({ product }: { product: Product }) {
   const priceCents = Math.round(Number(product.price) * 100);
-  const costCents = Math.round(Number(product.cost) * 100);
-  const marginCents = priceCents - costCents;
+  const costFacts: [string, string][] = [];
+  if (product.cost !== null) {
+    const costCents = Math.round(Number(product.cost) * 100);
+    const marginCents = priceCents - costCents;
+    costFacts.push(
+      ["Cost", formatPeso(costCents / 100)],
+      [
+        "Margin per unit",
+        priceCents > 0 ? `${formatPeso(marginCents / 100)} (${formatPercent(marginCents / priceCents)})` : "—",
+      ],
+    );
+  }
   const facts: [string, string][] = [
     ["Selling price", formatPeso(priceCents / 100)],
-    ["Cost", formatPeso(costCents / 100)],
-    [
-      "Margin per unit",
-      priceCents > 0 ? `${formatPeso(marginCents / 100)} (${formatPercent(marginCents / priceCents)})` : "—",
-    ],
+    ...costFacts,
     ["Category", product.category?.name ?? "—"],
     ["Unit", product.unit],
     ["Barcode", product.barcode ?? "—"],

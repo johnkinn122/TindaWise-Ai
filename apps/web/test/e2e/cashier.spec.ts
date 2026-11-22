@@ -10,6 +10,10 @@ test("a cashier can browse products but not change them", async ({ page }) => {
   await page.getByRole("link", { name: "Coca-Cola 1.5L" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Coca-Cola 1.5L" })).toBeVisible();
   await expect(page.getByText("Only owners and managers can change stock.")).toBeVisible();
+  // Costs are for owners and managers; the API doesn't send them to cashiers.
+  await expect(page.getByText("Selling price")).toBeVisible();
+  await expect(page.getByText("Cost", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Margin per unit")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Archive" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add stock" })).toHaveCount(0);

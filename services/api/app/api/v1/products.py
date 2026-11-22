@@ -3,7 +3,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Response, status
 
-from app.api.deps import CanManageInventory, CurrentOrg, DbSession
+from app.api.deps import Auth, CanManageInventory, CurrentOrg, DbSession, can_see_costs
+from app.models import Product
 from app.schemas.common import Page
 from app.schemas.inventory import StockAdjustmentCreate, StockMovementRead
 from app.schemas.product import (
@@ -19,10 +20,16 @@ from app.services import products as service
 router = APIRouter(prefix="/products", tags=["products"])
 
 
+def _visible(product: Product, auth: Auth) -> ProductRead:
+    """The product as this person may see it: cashiers get no cost."""
+    read = ProductRead.model_validate(product)
+    return read if can_see_costs(auth) else read.model_copy(update={"cost": None})
+
+
 @router.get("", response_model=Page[ProductRead])
 def list_products(
     db: DbSession,
-    org: CurrentOrg,
+    auth: Auth,
     q: Annotated[str | None, Query(max_length=100, description="Name, SKU or barcode")] = None,
     category_id: uuid.UUID | None = None,
     status: StockStatus | None = None,
@@ -33,7 +40,7 @@ def list_products(
 ):
     items, total = service.list_products(
         db,
-        org.id,
+        auth.organization.id,
         q=q.strip() if q else None,
         category_id=category_id,
         status=status,
@@ -42,17 +49,17 @@ def list_products(
         limit=limit,
         offset=offset,
     )
-    return Page(items=items, total=total, limit=limit, offset=offset)
+    return Page(items=[_visible(p, auth) for p in items], total=total, limit=limit, offset=offset)
 
 
 @router.get("/lookup", response_model=ProductRead)
 def lookup_product(
     db: DbSession,
-    org: CurrentOrg,
+    auth: Auth,
     code: Annotated[str, Query(min_length=1, max_length=64, description="Barcode or SKU")],
 ):
     """Exact match for a scanned barcode (or typed SKU). 404 when nothing matches."""
-    return service.lookup_product(db, org.id, code)
+    return _visible(service.lookup_product(db, auth.organization.id, code), auth)
 
 
 @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
@@ -61,8 +68,8 @@ def create_product(data: ProductCreate, db: DbSession, auth: CanManageInventory)
 
 
 @router.get("/{product_id}", response_model=ProductRead)
-def get_product(product_id: uuid.UUID, db: DbSession, org: CurrentOrg):
-    return service.get_product(db, org.id, product_id)
+def get_product(product_id: uuid.UUID, db: DbSession, auth: Auth):
+    return _visible(service.get_product(db, auth.organization.id, product_id), auth)
 
 
 @router.patch("/{product_id}", response_model=ProductRead)

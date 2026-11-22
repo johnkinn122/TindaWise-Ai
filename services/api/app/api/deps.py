@@ -49,6 +49,12 @@ def require_roles(*roles: Role) -> Callable[[AuthContext], AuthContext]:
     return check
 
 
+def can_see_costs(auth: AuthContext) -> bool:
+    """Product costs and anything derived from them (margin, profit, order value) are for owners
+    and managers. Endpoints that cashiers can read return those fields as null."""
+    return auth.has_role(Role.OWNER, Role.MANAGER)
+
+
 # Reusable permission levels.
 CanManageInventory = Annotated[AuthContext, Depends(require_roles(Role.OWNER, Role.MANAGER))]
 CanManageTeam = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
