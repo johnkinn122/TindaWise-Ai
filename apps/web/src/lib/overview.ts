@@ -7,7 +7,7 @@
 import type { Overview, StockStatus, StockWatchItem } from "@/lib/api/types";
 import { formatNumber, formatPercent, formatPesoWhole } from "@/lib/format";
 import { percentChange, pointChange } from "@/lib/compare";
-import { toCents } from "@/lib/money";
+import { signedCents, toCents } from "@/lib/money";
 
 export interface Kpi {
   id: string;
@@ -33,7 +33,8 @@ export interface StockItem {
   status: StockStatus;
 }
 
-const pesos = (amount: string) => toCents(amount) / 100;
+// Net sales can be negative (a day with more refunds than sales), so amounts are read signed.
+const pesos = (amount: string) => signedCents(amount) / 100;
 
 /** "Sunday": the store's current weekday, for "vs last Sunday". */
 export function storeWeekday(overview: Pick<Overview, "as_of" | "timezone">): string {
@@ -45,6 +46,14 @@ export function storeWeekday(overview: Pick<Overview, "as_of" | "timezone">): st
 /** Percent change against the same weekday last week. No baseline, no percentage. */
 export function compareCounts(current: number, previous: number, weekday: string): Pick<Kpi, "change" | "trend"> {
   return percentChange(current, previous, { against: `last ${weekday}`, noBaseline: `No sales last ${weekday}` });
+}
+
+/** Sales are net of refunds; when there were any today, the line says how much. */
+function withRefunds(comparison: Pick<Kpi, "change" | "trend">, refunds: string): Pick<Kpi, "change" | "trend"> {
+  const refunded = toCents(refunds);
+  return refunded > 0
+    ? { ...comparison, change: `${comparison.change} · ${formatPesoWhole(refunded / 100)} refunded` }
+    : comparison;
 }
 
 function compareMargins(current: string | null, previous: string | null, weekday: string): Pick<Kpi, "change" | "trend"> {
@@ -70,7 +79,7 @@ export function buildKpis(overview: Overview): Kpi[] {
       id: "sales",
       label: mine ? "Your sales today" : "Sales today",
       value: formatPesoWhole(pesos(today.sales)),
-      ...compareCounts(toCents(today.sales), toCents(lastWeek.sales), weekday),
+      ...withRefunds(compareCounts(signedCents(today.sales), signedCents(lastWeek.sales), weekday), today.refunds),
     },
     {
       id: "transactions",
@@ -133,8 +142,8 @@ export function buildWeeklySales(overview: Overview): DailySales[] {
 /** Plain-language chart summary for screen readers: this week so far vs the same days last week. */
 export function weeklySummary(overview: Overview): string {
   const elapsed = overview.week.filter((day) => day.sales !== null);
-  const thisWeek = elapsed.reduce((sum, day) => sum + toCents(day.sales ?? "0"), 0);
-  const lastWeek = elapsed.reduce((sum, day) => sum + toCents(day.last_week_sales), 0);
+  const thisWeek = elapsed.reduce((sum, day) => sum + signedCents(day.sales ?? "0"), 0);
+  const lastWeek = elapsed.reduce((sum, day) => sum + signedCents(day.last_week_sales), 0);
   const days = elapsed.length === 1 ? "1 day" : `${elapsed.length} days`;
   const whose = overview.sales_scope === "mine" ? "Your sales" : "Sales";
   return `${whose} this week so far (${days}): ${formatPesoWhole(thisWeek / 100)}. Same days last week: ${formatPesoWhole(lastWeek / 100)}.`;

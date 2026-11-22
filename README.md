@@ -4,8 +4,8 @@ A retail operations platform for small and medium stores in the Philippines: pro
 and (planned) sales, suppliers, demand forecasting and an AI business copilot.
 
 > **Status:** early development. Built so far: sign-in with owner/manager/cashier roles,
-> Products, Point of Sale, an Overview dashboard, suppliers and purchase orders, Reports, and an
-> inventory ledger that prevents overselling. Everything else is planned; see [Roadmap](#roadmap).
+> Products, Point of Sale, sales history with refunds, an Overview dashboard, suppliers and
+> purchase orders, Reports, and an inventory ledger that prevents overselling. Everything else is planned; see [Roadmap](#roadmap).
 
 ## What works today
 
@@ -14,6 +14,9 @@ and (planned) sales, suppliers, demand forecasting and an AI business copilot.
   orders; everyone can sell, and cashiers never see costs. Enforced by the API.
 - **Point of Sale:** scan or search, cart, cash with change or e-wallet reference, printable receipt.
   Stock drops with every sale, and a sale is all-or-nothing.
+- **Sales history and refunds:** every receipt, searchable by number. Owners and managers refund
+  some or all items, with a reason, choosing per item whether it goes back on the shelf. Sales,
+  profit and reports are net of refunds. Cashiers see their own receipts.
 - **Overview:** today's sales, transactions and gross margin against the same day last week, this
   week's sales by day, stock to watch, and rule-based reorder quantities. Days follow the store's
   time zone. Cashiers see their own sales and no costs.
@@ -96,7 +99,8 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md
 ## Roadmap
 
 1. **Core platform**: ✅ products and inventory · ✅ sign-in and roles · ✅ point of sale ·
-   ✅ real Overview · ✅ suppliers and purchase orders · ✅ reports · 📋 inventory page (store-wide ledger)
+   ✅ real Overview · ✅ suppliers and purchase orders · ✅ reports · ✅ sales history and refunds ·
+   📋 inventory page (store-wide ledger)
 2. **Machine learning** (planned): demand forecasting, stockout risk, anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)

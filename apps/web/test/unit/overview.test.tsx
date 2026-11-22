@@ -19,8 +19,8 @@ function overview(overrides: Partial<Overview> = {}): Overview {
     currency: "PHP",
     sales_scope: "store",
     costs_visible: true,
-    today: { sales: "1150.00", transactions: 23, gross_margin: "0.2240" },
-    same_day_last_week: { sales: "1000.00", transactions: 25, gross_margin: "0.2130" },
+    today: { sales: "1150.00", refunds: "0.00", transactions: 23, gross_margin: "0.2240" },
+    same_day_last_week: { sales: "1000.00", refunds: "0.00", transactions: 25, gross_margin: "0.2130" },
     week,
     low_stock_count: 4,
     out_of_stock_count: 2,
@@ -60,7 +60,7 @@ describe("buildKpis", () => {
   });
 
   it("shows a dash, not 0%, when there are no sales yet", () => {
-    const margin = buildKpis(overview({ today: { sales: "0.00", transactions: 0, gross_margin: null } }))[2];
+    const margin = buildKpis(overview({ today: { sales: "0.00", refunds: "0.00", transactions: 0, gross_margin: null } }))[2];
     expect(margin).toMatchObject({ value: "—", change: "No sales yet today", trend: "neutral" });
   });
 
@@ -69,8 +69,8 @@ describe("buildKpis", () => {
       overview({
         sales_scope: "mine",
         costs_visible: false,
-        today: { sales: "300.00", transactions: 4, gross_margin: null },
-        same_day_last_week: { sales: "0.00", transactions: 0, gross_margin: null },
+        today: { sales: "300.00", refunds: "0.00", transactions: 4, gross_margin: null },
+        same_day_last_week: { sales: "0.00", refunds: "0.00", transactions: 0, gross_margin: null },
       }),
     );
     expect(kpis.map((k) => k.label)).toEqual(["Your sales today", "Your transactions", "Running low", "Out of stock"]);
@@ -102,6 +102,23 @@ describe("niceTicks", () => {
   ])("covers %d with round steps", (max, ticks) => {
     expect(niceTicks(max)).toEqual(ticks);
     expect(ticks.at(-1)).toBeGreaterThanOrEqual(max);
+  });
+  it("goes below zero only when a value does (a day with more refunds than sales)", () => {
+    expect(niceTicks(1000, -300)).toEqual([-500, 0, 500, 1000]);
+    expect(niceTicks(0, -80)).toEqual([-100, -50, 0]);
+    expect(niceTicks(900, 0)).toEqual([0, 250, 500, 750, 1000]);
+  });
+});
+
+describe("refunds on the Overview", () => {
+  it("reads negative net sales and says how much was refunded", () => {
+    const [sales] = buildKpis(
+      overview({
+        today: { sales: "-50.00", refunds: "250.00", transactions: 2, gross_margin: null },
+        same_day_last_week: { sales: "100.00", refunds: "0.00", transactions: 1, gross_margin: "0.2000" },
+      }),
+    );
+    expect(sales).toMatchObject({ value: "-₱50", change: "150% vs last Wednesday · ₱250 refunded", trend: "down" });
   });
 });
 

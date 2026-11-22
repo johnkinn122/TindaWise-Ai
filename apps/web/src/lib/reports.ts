@@ -1,14 +1,14 @@
 /**
  * Reports page logic without fetching: reading the URL, wording, labels and CSV layouts.
  * Figures are defined in services/api/app/services/reports.py; nothing is recomputed here except
- * display formatting.
+ * display formatting. Sales are net of refunds and can be negative, so amounts are read signed.
  */
 
 import type { ReportParams } from "@/lib/api/reports";
 import type { ReportPeriod, ReportPreset, ReportProductSort, SalesReport } from "@/lib/api/types";
 import { percentChange, pointChange } from "@/lib/compare";
 import { toCsv } from "@/lib/csv";
-import { formatNumber, formatPercent, formatPesoWhole } from "@/lib/format";
+import { formatNumber, formatPercent, formatPeso, formatPesoWhole } from "@/lib/format";
 import { signedCents, toCents } from "@/lib/money";
 import type { Kpi } from "@/lib/overview";
 
@@ -71,16 +71,16 @@ function comparisonWording(days: number) {
     : { against: `the previous ${days} days`, noBaseline: `No sales in the previous ${days} days` };
 }
 
-/** Sales, gross profit, gross margin and transactions, each against the previous period. */
+/** Net sales, gross profit, gross margin and transactions, each against the previous period. */
 export function buildReportKpis(report: SalesReport): Kpi[] {
   const { summary: now, previous_summary: before } = report;
   const wording = comparisonWording(report.period.days);
   return [
     {
       id: "sales",
-      label: "Sales",
-      value: formatPesoWhole(toCents(now.sales) / 100),
-      ...percentChange(toCents(now.sales), toCents(before.sales), wording),
+      label: "Net sales",
+      value: formatPesoWhole(signedCents(now.sales) / 100),
+      ...percentChange(signedCents(now.sales), signedCents(before.sales), wording),
     },
     {
       id: "profit",
@@ -121,10 +121,23 @@ export function bucketLabels(start: string, granularity: SalesReport["granularit
   return { short: shortDay.format(day(start)), long: longDay.format(day(start)) };
 }
 
+/**
+ * "Gross ₱1,200.00 − refunds ₱150.00 (2) = net ₱1,050.00", or null when the period had no refunds.
+ * Shown under the KPIs so the net figure is never a surprise.
+ */
+export function refundBreakdown(report: SalesReport): string | null {
+  const { summary } = report;
+  if (summary.refund_count === 0) return null;
+  const count = summary.refund_count === 1 ? "1 refund" : `${formatNumber(summary.refund_count)} refunds`;
+  return `Gross sales ${formatPeso(toCents(summary.gross_sales) / 100)} − ${count} ${formatPeso(toCents(summary.refunds) / 100)} = net sales ${formatPeso(signedCents(summary.sales) / 100)}`;
+}
+
 export interface SeriesRow {
   label: string;
   longLabel: string;
+  /** Net sales (can be negative). */
   sales: number;
+  refunds: number;
   transactions: number;
   grossProfit: number;
 }
@@ -135,7 +148,8 @@ export function buildSeries(report: SalesReport): SeriesRow[] {
     return {
       label: labels.short,
       longLabel: labels.long,
-      sales: toCents(point.sales) / 100,
+      sales: signedCents(point.sales) / 100,
+      refunds: toCents(point.refunds) / 100,
       transactions: point.transactions,
       grossProfit: signedCents(point.gross_profit) / 100,
     };
@@ -144,13 +158,15 @@ export function buildSeries(report: SalesReport): SeriesRow[] {
 
 /** Text summary of the sales chart for screen readers: total, and the best bucket. */
 export function seriesSummary(report: SalesReport): string {
-  const total = formatPesoWhole(toCents(report.summary.sales) / 100);
+  const total = formatPesoWhole(signedCents(report.summary.sales) / 100);
   const rows = buildSeries(report);
   const best = rows.reduce<SeriesRow | null>((top, row) => (row.sales > (top?.sales ?? 0) ? row : top), null);
   const by = granularityLabels[report.granularity];
   return best
-    ? `Sales ${by}, ${formatPeriod(report.period)}: ${total} in total. Highest: ${best.longLabel}, ${formatPesoWhole(best.sales)}.`
-    : `Sales ${by}, ${formatPeriod(report.period)}: no sales.`;
+    ? `Net sales ${by}, ${formatPeriod(report.period)}: ${total} in total. Highest: ${best.longLabel}, ${formatPesoWhole(best.sales)}.`
+    : report.summary.refund_count > 0
+      ? `Net sales ${by}, ${formatPeriod(report.period)}: ${total}, refunds only.`
+      : `Net sales ${by}, ${formatPeriod(report.period)}: no sales.`;
 }
 
 export const paymentLabels: Record<SalesReport["payments"][number]["method"], string> = {
@@ -177,15 +193,21 @@ export function reportCsv(report: SalesReport, kind: ExportKind): { filename: st
       return {
         filename: `tindawise-sales-${report.granularity}-${range}.csv`,
         body: toCsv(
-          [`${report.granularity === "day" ? "Date" : `${report.granularity} starting`}`, "Sales (PHP)", "Transactions", "Gross profit (PHP)"],
-          report.series.map((p) => [p.start, p.sales, p.transactions, p.gross_profit]),
+          [
+            `${report.granularity === "day" ? "Date" : `${report.granularity} starting`}`,
+            "Net sales (PHP)",
+            "Refunds (PHP)",
+            "Transactions",
+            "Gross profit (PHP)",
+          ],
+          report.series.map((p) => [p.start, p.sales, p.refunds, p.transactions, p.gross_profit]),
         ),
       };
     case "products":
       return {
         filename: `tindawise-products-${range}.csv`,
         body: toCsv(
-          ["Product", "SKU", "Unit", "Quantity", "Sales (PHP)", "Gross profit (PHP)", "Gross margin (%)"],
+          ["Product", "SKU", "Unit", "Net quantity", "Net sales (PHP)", "Gross profit (PHP)", "Gross margin (%)"],
           report.products.map((p) => [p.name, p.sku, p.unit, p.quantity, p.sales, p.gross_profit, ratio(p.gross_margin)]),
         ),
       };
@@ -193,7 +215,7 @@ export function reportCsv(report: SalesReport, kind: ExportKind): { filename: st
       return {
         filename: `tindawise-categories-${range}.csv`,
         body: toCsv(
-          ["Category", "Quantity", "Sales (PHP)", "Gross profit (PHP)"],
+          ["Category", "Net quantity", "Net sales (PHP)", "Gross profit (PHP)"],
           report.categories.map((c) => [c.name, c.quantity, c.sales, c.gross_profit]),
         ),
       };

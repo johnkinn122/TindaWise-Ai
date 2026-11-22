@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { ReportParams } from "@/lib/api/reports";
 import type { ReportProductSort, SalesReport } from "@/lib/api/types";
 import { formatNumber, formatPercent } from "@/lib/format";
-import { formatCents, signedCents, toCents } from "@/lib/money";
+import { formatCents, signedCents } from "@/lib/money";
 import { productSortLabels, reportQuery } from "@/lib/reports";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +53,7 @@ export function TopProductsTable({ report, params }: { report: SalesReport; para
               {formatNumber(product.quantity)}
               <span className="ml-1 text-xs text-muted-foreground">{product.unit}</span>
             </TableCell>
-            <TableCell className="tabular text-right">{formatCents(toCents(product.sales))}</TableCell>
+            <TableCell className="tabular text-right">{formatCents(signedCents(product.sales))}</TableCell>
             <TableCell className="tabular hidden text-right md:table-cell">{formatCents(signedCents(product.gross_profit))}</TableCell>
             <TableCell className="tabular hidden pr-4 text-right sm:pr-5 lg:table-cell">
               {product.gross_margin === null ? "—" : formatPercent(Number(product.gross_margin))}

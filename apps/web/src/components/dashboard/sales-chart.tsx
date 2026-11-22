@@ -37,7 +37,8 @@ interface SalesChartProps {
  */
 export function SalesChart({ title = "Sales this week", data, summary }: SalesChartProps) {
   const [showTable, setShowTable] = useState(false);
-  const ticks = niceTicks(Math.max(...data.flatMap((row) => [row.thisWeek ?? 0, row.lastWeek])));
+  const values = data.flatMap((row) => [row.thisWeek ?? 0, row.lastWeek]);
+  const ticks = niceTicks(Math.max(...values), Math.min(...values, 0));
 
   return (
     <Panel
@@ -102,7 +103,7 @@ export function SalesChart({ title = "Sales this week", data, summary }: SalesCh
                 />
                 <YAxis
                   width={48}
-                  domain={[0, ticks.at(-1) ?? 0]}
+                  domain={[ticks[0] ?? 0, ticks.at(-1) ?? 0]}
                   ticks={ticks}
                   tickLine={false}
                   axisLine={false}

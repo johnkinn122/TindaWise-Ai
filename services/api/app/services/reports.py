@@ -2,8 +2,14 @@
 
 - A period is a range of calendar days in the store's time zone, both ends included.
 - The comparison period has the same number of days and ends the day before the period starts.
-- Sales = sum of sale totals. Gross profit = sales - cost, using the cost copied onto each sale
-  line at checkout. Gross margin = gross profit / sales.
+- Gross sales = sum of sale totals. Refunds = sum of refunds given in the period, whenever the
+  sale was (closed periods never change). Sales (net) = gross sales - refunds.
+- Net cost = cost copied onto each sale line at checkout, minus the cost of refunded units put
+  back on the shelf. Refunded units not restocked (damaged, spoiled) stay a loss.
+- Gross profit = net sales - net cost. Gross margin = gross profit / net sales.
+- Transactions = number of sales. Average sale = gross sales / transactions (the basket at
+  checkout). Items sold, products, categories and payment methods are net of refunds too, so a
+  product can show a negative line in a period with more refunds than sales.
 - Buckets: by day up to 31 days, by week (Sunday start) up to 182 days, by month beyond that.
 - Category is the product's category today (sales don't record it), so moving a product to
   another category moves its past sales with it.
@@ -16,7 +22,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, distinct, func, select
+from sqlalchemy import Numeric, and_, case, distinct, func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from app.core.errors import InvalidInputError
@@ -28,6 +34,8 @@ from app.models import (
     PurchaseOrder,
     PurchaseOrderLine,
     PurchaseOrderReceipt,
+    Refund,
+    RefundLine,
     Sale,
     SaleLine,
     StockMovement,
@@ -152,33 +160,66 @@ def _ratio(part: Decimal, whole: Decimal) -> Decimal | None:
 
 
 def _summary(days: dict[date, DayTotals], items_sold: int) -> ReportSummary:
-    sales = sum((d.sales for d in days.values()), ZERO)
-    cost = sum((d.cost for d in days.values()), ZERO)
+    gross = sum((d.sales for d in days.values()), ZERO)
+    refunds = sum((d.refunds for d in days.values()), ZERO)
+    net = gross - refunds
+    net_cost = sum((d.net_cost for d in days.values()), ZERO)
     transactions = sum(d.transactions for d in days.values())
     return ReportSummary(
-        sales=sales.quantize(CENT),
+        gross_sales=gross.quantize(CENT),
+        refunds=refunds.quantize(CENT),
+        refund_count=sum(d.refund_count for d in days.values()),
+        sales=net.quantize(CENT),
         transactions=transactions,
-        average_sale=(sales / transactions).quantize(CENT) if transactions else None,
-        gross_profit=(sales - cost).quantize(CENT),
-        gross_margin=_ratio(sales - cost, sales),
+        average_sale=(gross / transactions).quantize(CENT) if transactions else None,
+        gross_profit=(net - net_cost).quantize(CENT),
+        gross_margin=_ratio(net - net_cost, net),
         items_sold=items_sold,
     )
 
 
-def _line_filters(org_id: uuid.UUID, start: datetime, end: datetime) -> list:
+def _sale_filters(org_id: uuid.UUID, start: datetime, end: datetime) -> list:
     return [Sale.organization_id == org_id, Sale.created_at >= start, Sale.created_at < end]
 
 
-def _items_sold(db: Session, org_id: uuid.UUID, start: datetime, end: datetime) -> int:
-    total = db.scalar(
-        select(func.coalesce(func.sum(SaleLine.quantity), 0))
+def _refund_filters(org_id: uuid.UUID, start: datetime, end: datetime) -> list:
+    return [Refund.organization_id == org_id, Refund.created_at >= start, Refund.created_at < end]
+
+
+def _line_events(org_id: uuid.UUID, start: datetime, end: datetime):
+    """Sold lines (+) and refunded lines (-) in the period, as one table with columns
+    product_id, quantity, amount, cost. Summing it gives net figures per product."""
+    sold = (
+        select(
+            SaleLine.product_id.label("product_id"),
+            SaleLine.quantity.label("quantity"),
+            SaleLine.line_total.label("amount"),
+            (SaleLine.unit_cost * SaleLine.quantity).label("cost"),
+        )
         .join(Sale, Sale.id == SaleLine.sale_id)
-        .where(*_line_filters(org_id, start, end))
+        .where(*_sale_filters(org_id, start, end))
     )
+    refunded = (
+        select(
+            RefundLine.product_id,
+            -RefundLine.quantity,
+            -RefundLine.line_total,
+            # Restocked units give their cost back; units not restocked stay a loss.
+            case(
+                (RefundLine.restocked, -(RefundLine.unit_cost * RefundLine.quantity)),
+                else_=literal(0, Numeric(12, 2)),
+            ),
+        )
+        .join(Refund, Refund.id == RefundLine.refund_id)
+        .where(*_refund_filters(org_id, start, end))
+    )
+    return union_all(sold, refunded).subquery("line_events")
+
+
+def _items_sold(db: Session, org_id: uuid.UUID, start: datetime, end: datetime) -> int:
+    events = _line_events(org_id, start, end)
+    total = db.scalar(select(func.coalesce(func.sum(events.c.quantity), 0)))
     return int(total or 0)
-
-
-_LINE_PROFIT = SaleLine.line_total - SaleLine.unit_cost * SaleLine.quantity
 
 
 def _products(
@@ -189,25 +230,20 @@ def _products(
     sort: ProductSort,
     limit: int,
 ) -> tuple[list[ProductRow], int]:
-    quantity = func.sum(SaleLine.quantity).label("quantity")
-    sales = func.sum(SaleLine.line_total).label("sales")
-    profit = func.sum(_LINE_PROFIT).label("profit")
+    events = _line_events(org_id, start, end)
+    quantity = func.sum(events.c.quantity).label("quantity")
+    sales = func.sum(events.c.amount).label("sales")
+    profit = func.sum(events.c.amount - events.c.cost).label("profit")
     order = {"sales": sales, "gross_profit": profit, "quantity": quantity}[sort]
     rows = db.execute(
         select(Product.id, Product.name, Product.sku, Product.unit, quantity, sales, profit)
-        .select_from(SaleLine)
-        .join(Sale, Sale.id == SaleLine.sale_id)
-        .join(Product, Product.id == SaleLine.product_id)
-        .where(*_line_filters(org_id, start, end))
+        .select_from(events)
+        .join(Product, Product.id == events.c.product_id)
         .group_by(Product.id)
         .order_by(order.desc(), Product.name)
         .limit(limit)
     ).all()
-    count = db.scalar(
-        select(func.count(distinct(SaleLine.product_id)))
-        .join(Sale, Sale.id == SaleLine.sale_id)
-        .where(*_line_filters(org_id, start, end))
-    )
+    count = db.scalar(select(func.count(distinct(events.c.product_id))))
     return [
         ProductRow(
             product_id=pid,
@@ -226,20 +262,19 @@ def _products(
 def _categories(
     db: Session, org_id: uuid.UUID, start: datetime, end: datetime
 ) -> list[CategoryRow]:
-    sales = func.sum(SaleLine.line_total).label("sales")
+    events = _line_events(org_id, start, end)
+    sales = func.sum(events.c.amount).label("sales")
     rows = db.execute(
         select(
             Category.id,
             Category.name,
-            func.sum(SaleLine.quantity),
+            func.sum(events.c.quantity),
             sales,
-            func.sum(_LINE_PROFIT),
+            func.sum(events.c.amount - events.c.cost),
         )
-        .select_from(SaleLine)
-        .join(Sale, Sale.id == SaleLine.sale_id)
-        .join(Product, Product.id == SaleLine.product_id)
+        .select_from(events)
+        .join(Product, Product.id == events.c.product_id)
         .outerjoin(Category, Category.id == Product.category_id)
-        .where(*_line_filters(org_id, start, end))
         .group_by(Category.id, Category.name)
         .order_by(sales.desc())
     ).all()
@@ -256,16 +291,33 @@ def _categories(
 
 
 def _payments(db: Session, org_id: uuid.UUID, start: datetime, end: datetime) -> list[PaymentRow]:
-    sales = func.sum(Sale.total).label("sales")
+    """Net sales per payment method. Refunds go back the way the sale was paid."""
+    zero = literal(0, Numeric(12, 2))
+    events = union_all(
+        select(
+            Sale.payment_method.label("method"),
+            Sale.total.label("gross"),
+            zero.label("refunds"),
+            literal(1).label("sales_count"),
+        ).where(*_sale_filters(org_id, start, end)),
+        select(Refund.payment_method, zero, Refund.total, literal(0)).where(
+            *_refund_filters(org_id, start, end)
+        ),
+    ).subquery("payment_events")
+    net = func.sum(events.c.gross - events.c.refunds).label("net")
     rows = db.execute(
-        select(Sale.payment_method, sales, func.count())
-        .where(*_line_filters(org_id, start, end))
-        .group_by(Sale.payment_method)
-        .order_by(sales.desc())
+        select(events.c.method, net, func.sum(events.c.refunds), func.sum(events.c.sales_count))
+        .group_by(events.c.method)
+        .order_by(net.desc())
     ).all()
     return [
-        PaymentRow(method=method, sales=total.quantize(CENT), transactions=count)
-        for method, total, count in rows
+        PaymentRow(
+            method=method,
+            sales=total.quantize(CENT),
+            refunds=refunds.quantize(CENT),
+            transactions=int(count),
+        )
+        for method, total, refunds, count in rows
     ]
 
 
@@ -333,9 +385,10 @@ def build_sales_report(
     series = [
         SeriesPoint(
             start=bucket,
-            sales=sum((d.sales for d in days), ZERO).quantize(CENT),
+            sales=sum((d.net_sales for d in days), ZERO).quantize(CENT),
+            refunds=sum((d.refunds for d in days), ZERO).quantize(CENT),
             transactions=sum(d.transactions for d in days),
-            gross_profit=sum((d.sales - d.cost for d in days), ZERO).quantize(CENT),
+            gross_profit=sum((d.net_sales - d.net_cost for d in days), ZERO).quantize(CENT),
         )
         for bucket, days in buckets.items()
     ]

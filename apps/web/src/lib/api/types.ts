@@ -59,6 +59,7 @@ export interface ApiErrorBody {
 }
 
 export interface SaleLine {
+  id: string;
   product_id: string;
   product_name: string;
   sku: string;
@@ -66,6 +67,49 @@ export interface SaleLine {
   unit_price: string;
   quantity: number;
   line_total: string;
+  quantity_refunded: number;
+}
+
+export type RefundReason = "customer_return" | "damaged" | "wrong_item" | "other";
+export type RefundStatus = "none" | "partial" | "full";
+
+/** Money given back on a receipt. No cost fields: cashiers can read refunds on their receipts. */
+export interface Refund {
+  id: string;
+  refund_number: number;
+  /** "R-000001" */
+  refund_code: string;
+  total: string;
+  /** Paid back the way the sale was paid. */
+  payment_method: "cash" | "e_wallet";
+  reason: RefundReason;
+  note: string | null;
+  created_at: string;
+  refunded_by_name: string | null;
+  lines: {
+    sale_line_id: string;
+    product_id: string;
+    product_name: string;
+    unit: string;
+    quantity: number;
+    unit_price: string;
+    line_total: string;
+    /** False: damaged or spoiled, not put back in stock. */
+    restocked: boolean;
+  }[];
+}
+
+export interface SaleSummary {
+  id: string;
+  receipt_number: number;
+  receipt_code: string;
+  total: string;
+  refunded_total: string;
+  refund_status: RefundStatus;
+  payment_method: "cash" | "e_wallet";
+  created_at: string;
+  cashier_name: string | null;
+  item_count: number;
 }
 
 export interface Sale {
@@ -78,15 +122,21 @@ export interface Sale {
   amount_tendered: string | null;
   change_due: string | null;
   payment_reference: string | null;
+  refunded_total: string;
+  refund_status: RefundStatus;
   created_at: string;
   cashier_name: string | null;
   item_count: number;
   lines: SaleLine[];
+  refunds: Refund[];
 }
 
 /** GET /overview. Money is a decimal string; gross_margin is a ratio string ("0.2240"). */
 export interface SalesFigures {
+  /** Net: sales rung up minus refunds given that day. Can be negative. */
   sales: string;
+  /** Refunds given that day, already subtracted from `sales`. */
+  refunds: string;
   transactions: number;
   /** Null when there were no sales, or for roles that may not see costs. */
   gross_margin: string | null;
@@ -95,7 +145,7 @@ export interface SalesFigures {
 export interface OverviewDay {
   /** Calendar date in the store's time zone, e.g. "2026-11-22". */
   date: string;
-  /** Null for days that haven't happened yet. */
+  /** Net sales (can be negative). Null for days that haven't happened yet. */
   sales: string | null;
   last_week_sales: string;
 }
@@ -211,12 +261,19 @@ export interface ReportPeriod {
   days: number;
 }
 
+/** Sales figures are net of refunds (and can be negative) unless the name says gross. */
 export interface ReportSummary {
+  gross_sales: string;
+  /** Refunds given in the period, whatever the sale date. */
+  refunds: string;
+  refund_count: number;
+  /** Net: gross_sales - refunds. */
   sales: string;
   transactions: number;
+  /** gross_sales / transactions; null with no sales. */
   average_sale: string | null;
   gross_profit: string;
-  /** Ratio string ("0.2240"); null with no sales. */
+  /** Ratio string ("0.2240"); null when net sales are zero or less. */
   gross_margin: string | null;
   items_sold: number;
 }
@@ -231,7 +288,7 @@ export interface SalesReport {
   summary: ReportSummary;
   previous_summary: ReportSummary;
   /** One point per day/week/month, zero-filled; `start` is the bucket's first day. */
-  series: { start: string; sales: string; transactions: number; gross_profit: string }[];
+  series: { start: string; sales: string; refunds: string; transactions: number; gross_profit: string }[];
   products: {
     product_id: string;
     name: string;
@@ -245,7 +302,7 @@ export interface SalesReport {
   product_count: number;
   product_sort: ReportProductSort;
   categories: { category_id: string | null; name: string; quantity: number; sales: string; gross_profit: string }[];
-  payments: { method: "cash" | "e_wallet"; sales: string; transactions: number }[];
+  payments: { method: "cash" | "e_wallet"; sales: string; refunds: string; transactions: number }[];
   suppliers: { supplier_id: string; name: string; received_value: string; deliveries: number }[];
   purchases_total: string;
 }

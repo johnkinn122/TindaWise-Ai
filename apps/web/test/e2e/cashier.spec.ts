@@ -61,3 +61,14 @@ test("a cashier can't open reports", async ({ page }) => {
   const response = await page.request.get("/reports/export?kind=products");
   expect(response.status()).toBe(403);
 });
+
+test("a cashier sees their own sales history but can't give refunds", async ({ page }) => {
+  await page.goto("/sales");
+  await expect(page.getByRole("heading", { level: 1, name: "Sales history" })).toBeVisible();
+  await expect(page.getByText("Your receipts, newest first. Refunds are given by an owner or manager.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Refund items" })).toHaveCount(0);
+
+  // Even with a direct link, the refund page explains the rule (the API refuses it too).
+  await page.goto("/sales/00000000-0000-0000-0000-000000000000/refund");
+  await expect(page.getByText("Only owners and managers can give refunds.")).toBeVisible();
+});

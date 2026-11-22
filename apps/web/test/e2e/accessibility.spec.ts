@@ -15,6 +15,7 @@ function summarize(violations: Awaited<ReturnType<AxeBuilder["analyze"]>>["viola
 const pages = [
   "/",
   "/sell",
+  "/sales",
   "/products",
   "/products/new",
   "/suppliers",

@@ -4,6 +4,54 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Sales history and refunds (`feature/refunds`)
+
+### Built
+- Database (migration `8bbe9c689871`): `refunds` and `refund_lines` tables;
+  `sales.refunded_total`, `sale_lines.quantity_refunded`, `organizations.last_refund_number`,
+  `stock_movements.refund_id`. CHECKs: refunded units ≤ units sold, refunded total ≤ sale total,
+  "other" needs a note, refund line total = price × quantity.
+- API `POST /api/v1/sales/{id}/refunds` (owners and managers): partial or full refunds per
+  receipt line, with a reason and an optional note. Each line can be restocked (stock goes back
+  up as a `return` movement) or not (damaged or spoiled). The amount comes from the receipt's
+  price snapshot, never from the client, and is paid back the way the sale was paid.
+  `Idempotency-Key` makes a retry return the original refund. Numbers are `R-000001` per store.
+- API `GET /api/v1/sales` takes `receipt=S-000123` (or `123`) and returns `refunded_total`;
+  `GET /api/v1/sales/{id}` returns the receipt's refunds and its refund status.
+- Reports and Overview are now **net of refunds** (formulas in `docs/ARCHITECTURE.md`):
+  refunds count on the day they are given, restocked units give their cost back, and units not
+  restocked stay a loss. Reports adds gross sales, refunds and the refund count; the reorder rule
+  subtracts refunded units from recent sales.
+- Web: **Sales history** in the sidebar (`/sales`): receipts newest first, find by number,
+  refund status badges, pagination. Receipt page (`/sales/[id]`): items with sold and refunded
+  quantities, Total / Refunded / Kept, the list of refunds, and a **Refund items** form that
+  confirms the amount and payment method before submitting. The form keeps one idempotency key
+  per refund attempt. Cashiers see their own receipts and no refund button.
+
+### Verified
+- pytest 141/141 (113 before), including 24 in `test_refunds.py`: partial and full refunds,
+  over-refund 409, restock vs no restock, idempotent replay, key reused on another receipt,
+  cashier 403, other store's receipt 404, concurrent refunds; plus new net-of-refund cases in
+  the reports and overview tests.
+- Vitest 106/106 (88 before). Playwright 80/80 (72 before): sell → find in sales history →
+  partial refund with confirmation → stock restored; refund the rest without restocking → receipt
+  closed, stock unchanged; today's report net of refunds; cashier sees no refund button; axe on
+  Sales history (both themes), the receipt page and the refund form with errors showing.
+- `npm run typecheck:web`, `npm run lint:web`, `npm run lint:api` pass. `alembic check`: models
+  match migrations.
+- Manual (running app): refund of 1 of 2 units through the API → 201; same key again → 200 and
+  still one refund; refunding 2 more → 409; cashier → 403. Sales history and the receipt page
+  checked in a browser at 1366px, no console errors.
+
+### Known issues / open items
+- No voids (cancelling a sale the same day) and no exchanges; an exchange is a refund plus a new sale.
+- A refund can't be undone. A mistaken refund needs a stock adjustment and a new sale.
+- No printable refund slip yet; the receipt page shows the refunds.
+- Reports can show a negative line for a product in a period with more refunds than sales.
+- Refunds aren't processed through GCash/Maya; the app records that money was paid back.
+
+---
+
 ## 2026-11-22 — Reports (`feature/reports`)
 
 ### Built

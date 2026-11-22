@@ -54,7 +54,8 @@ def clean_tables() -> Iterator[None]:
         conn.execute(
             text(
                 "TRUNCATE purchase_order_receipts, purchase_order_lines, purchase_orders, "
-                "suppliers, sale_lines, sales, sessions, memberships, users, stock_movements, "
+                "suppliers, refund_lines, refunds, sale_lines, sales, sessions, memberships, "
+                "users, stock_movements, "
                 "products, categories, "
                 "organizations CASCADE"
             )

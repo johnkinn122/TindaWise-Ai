@@ -35,7 +35,7 @@ test.describe.serial("reports", () => {
     await expect(page.getByText("Gross margin", { exact: true })).toBeVisible();
     const products = page.getByRole("region", { name: "Top products" });
     await expect(products.getByRole("link", { name: productName })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Sales by day" }).getByRole("img")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Net sales by day" }).getByRole("img")).toBeVisible();
   });
 
   test("sorting the products table is announced and kept in the URL", async ({ page }) => {
@@ -49,7 +49,7 @@ test.describe.serial("reports", () => {
 
   test("the chart has a table view and the products download as CSV", async ({ page }) => {
     await page.goto("/reports?preset=today");
-    const chart = page.getByRole("region", { name: "Sales by day" });
+    const chart = page.getByRole("region", { name: "Net sales by day" });
     await chart.getByRole("button", { name: "View as table" }).click();
     await expect(chart.getByRole("columnheader", { name: "Gross profit" })).toBeVisible();
 
@@ -58,7 +58,7 @@ test.describe.serial("reports", () => {
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^tindawise-products-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.csv$/);
     const text = await (await file.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString("utf8"));
-    expect(text).toContain("Product,SKU,Unit,Quantity,Sales (PHP),Gross profit (PHP),Gross margin (%)");
+    expect(text).toContain("Product,SKU,Unit,Net quantity,Net sales (PHP),Gross profit (PHP),Gross margin (%)");
     expect(text).toContain(`${productName},${sku},pcs,1,50.00,20.00,40.0`);
   });
 });
