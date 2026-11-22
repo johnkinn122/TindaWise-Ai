@@ -15,7 +15,10 @@
     "test:web": "npm run test --workspace web",
     "test:e2e": "npm run test:e2e --workspace web",
     "test:api": "node scripts/api.mjs test",
-    "lint:api": "node scripts/api.mjs lint"
+    "lint:api": "node scripts/api.mjs lint",
+    "test:ml": "node scripts/ml.mjs test",
+    "lint:ml": "node scripts/ml.mjs lint",
+    "backtest:ml": "node scripts/ml.mjs backtest"
   },
   "engines": {
     "node": ">=22"

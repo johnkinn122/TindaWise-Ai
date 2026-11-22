@@ -68,6 +68,27 @@ jobs:
       - run: ruff format --check .
       - run: pytest
 
+  ml:
+    name: ML — lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/ml
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: services/ml/pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest -W error
+      # Smoke test: the command documented in docs/ml/EXPERIMENTS.md still runs end to end.
+      - run: python -m tindawise_ml backtest
+
   e2e:
     name: End-to-end — Playwright on the full stack
     needs: [web, api]

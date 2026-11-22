@@ -4,6 +4,60 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — ML: forecasting baselines on synthetic history (`feature/ml-baselines`)
+
+First step of the machine learning phase (roadmap: Core Platform → **ML** → AI Agents → Deployment).
+
+### Decision (owner)
+- Start the ML phase now. Business settings, audit log and sign-in hardening come later.
+
+### Built
+- `services/ml`: a separate Python package (`tindawise_ml`, numpy + pandas only) with its own
+  virtual environment. It doesn't import the API and the API doesn't import it.
+- Daily demand table contract (`data.py`) with a validator: one zero-filled row per product per
+  day, `units_sold`, `stockout`.
+- Synthetic sample history (`synthetic.py`) for the 17 demo SKUs: seeded and repeatable,
+  with assumed weekday, payday, month, hot-season, Christmas and trend effects, negative binomial
+  noise, and a stock simulation whose stockouts cap sales (censored demand). Labelled as sample data
+  in the module, the CLI output, and the docs.
+- Baselines (`baselines.py`): naive, seasonal naive (7 days), 28-day moving average.
+- Metrics (`metrics.py`): MAE, RMSE, WAPE. Rolling-origin backtest and scoring (`backtest.py`)
+  that skips stockout days.
+- CLI: `python -m tindawise_ml backtest | generate`. Root scripts `test:ml`, `lint:ml`,
+  `backtest:ml`. The venv lookup moved from `scripts/api.mjs` into `scripts/python-venv.mjs`, shared
+  by both (API script behaviour unchanged).
+- CI job **ml**: Ruff, `pytest -W error`, and a backtest smoke run.
+- Docs: `docs/ml/EXPERIMENTS.md` (results), ARCHITECTURE "Machine learning", `services/ml/README.md`.
+
+### Results (synthetic data, seed 42, last 84 days, 7-day horizon)
+- 28-day moving average WAPE **50.5%** (MAE 2.56, RMSE 3.89); naive 65.8%; seasonal naive 69.1%.
+- The ranking held on seeds 1-5 (moving average 49.2-52.7%). Details and limits in EXPERIMENTS.md.
+- These describe the made-up data only, not a real store.
+
+### Verified
+- ML pytest 49/49 with warnings as errors: metrics against hand-computed values; contract
+  violations named; same seed → same table; each SKU's history independent of the others; sales
+  ≤ demand and every shortfall flagged; stockout rate between 1% and 10%; documented demand effects
+  reproduced exactly; origins tile the test period; **leakage test** (multiply every value after an
+  origin by 10 → identical forecasts); the `demand` column is never read; stockout days skipped
+  with hand-checked scores.
+- `ruff check` and `ruff format --check` clean. `npm run test:ml`, `lint:ml`, `backtest:ml` run.
+- Through the refactored script: `npm run lint:api` clean, `npm run test:api` 154/154. The first
+  run errored on every test because Docker Desktop wasn't running. Started it and reran.
+- **Not yet verified:** the new CI job. It runs for the first time on this branch's PR.
+
+### Found and fixed
+- A test assumed the trend was negligible across one week; at the tolerance used it wasn't. The
+  test now includes the trend factor exactly instead of loosening the tolerance.
+
+### Known issues / open items
+- Only synthetic data. No loader for the real database yet.
+- Baselines read stockout days as recorded, which biases them low after a stockout.
+- Metrics treat over- and under-forecasting the same; ordering decisions don't.
+- No trained model yet (LightGBM is next), and nothing is shown in the app.
+
+---
+
 ## 2026-11-22 — Inventory page (`feature/inventory-page`)
 
 ### Decision (owner)
