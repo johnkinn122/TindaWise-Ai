@@ -306,3 +306,45 @@ export interface SalesReport {
   suppliers: { supplier_id: string; name: string; received_value: string; deliveries: number }[];
   purchases_total: string;
 }
+
+// ── Inventory ledger (GET /inventory/...) ───────────────────────────────────
+
+export type MovementSourceKind = "sale" | "refund" | "purchase_order";
+
+/** What caused a movement. `id` is the page to open: the receipt for a sale or refund, the order for a delivery. */
+export interface MovementSource {
+  kind: MovementSourceKind;
+  id: string;
+  code: string;
+}
+
+export interface LedgerEntry {
+  id: string;
+  created_at: string;
+  product_id: string;
+  product_name: string;
+  sku: string;
+  unit: string;
+  quantity_change: number;
+  balance_after: number;
+  reason: MovementReason;
+  note: string | null;
+  created_by_name: string | null;
+  source: MovementSource | null;
+}
+
+export interface Person {
+  id: string;
+  name: string;
+}
+
+/** Active products only. `stock_value` is units on hand × each product's current cost. */
+export interface InventorySummary {
+  products: number;
+  units_on_hand: number;
+  stock_value: string;
+  currency: string;
+  low_stock: number;
+  out_of_stock: number;
+  people: Person[];
+}

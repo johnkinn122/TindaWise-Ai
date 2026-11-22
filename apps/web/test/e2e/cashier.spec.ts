@@ -72,3 +72,10 @@ test("a cashier sees their own sales history but can't give refunds", async ({ p
   await page.goto("/sales/00000000-0000-0000-0000-000000000000/refund");
   await expect(page.getByText("Only owners and managers can give refunds.")).toBeVisible();
 });
+
+test("a cashier can't open the inventory ledger", async ({ page }) => {
+  await page.goto("/inventory");
+  await expect(page.getByText(/only owners and managers can see it/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Stock changes" })).toHaveCount(0);
+  await expect(page.getByText("Stock value", { exact: true })).toHaveCount(0); // the KPI label, not the notice
+});

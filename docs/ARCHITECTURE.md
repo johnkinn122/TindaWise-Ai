@@ -49,7 +49,8 @@ src/
 │       ├── suppliers/          Live: list, /new, /[id]/edit (archive there), actions.ts
 │       ├── purchase-orders/    Live: list (status tabs), /new, /[id] (actions, deliveries, history), /[id]/edit
 │       ├── reports/            Live: period presets + custom range, KPIs, charts, tables; export/route.ts (CSV)
-│       └── inventory/page.tsx  Planned-module placeholder
+│       ├── sales/              Live: receipt list + search, /[id] (receipt, refunds, refund form), actions.ts
+│       └── inventory/          Live: stock KPIs + store-wide ledger with filters (owners and managers)
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
 │   ├── layout/                 App shell: sidebar, mobile drawer, top bar, nav, theme toggle
@@ -115,7 +116,7 @@ app/
 ├── api/          HTTP only: routes, query params, status codes. No business rules.
 │   ├── deps.py   DB session, signed-in session (Bearer token), role checks
 │   └── v1/       auth.py, members.py, categories.py, products.py, sales.py, overview.py,
-│                 suppliers.py, purchase_orders.py, reports.py
+│                 suppliers.py, purchase_orders.py, reports.py, inventory.py
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
 │   ├── auth.py        sign-up, sign-in, sessions, team membership
 │   ├── sales.py       checkout: prices from the DB, all-or-nothing, receipt numbers
@@ -124,6 +125,8 @@ app/
 │   ├── purchase_orders.py  draft → approve → receive; locks, idempotency, latest-cost rule
 │   ├── reports.py     sales report: periods, buckets, products, categories, payments, purchases
 │   ├── products.py    product + category rules, org-scoped queries
+│   ├── refunds.py     refunds: receipt prices, restock or write off, locks, idempotency
+│   ├── inventory_ledger.py  read-only: store-wide ledger with filters, stock summary
 │   └── inventory.py   the ONLY place stock changes
 ├── models/       SQLAlchemy tables
 ├── schemas/      Pydantic request/response shapes
@@ -259,6 +262,28 @@ sales list), `costs_visible: false`, and every cost-derived field (`gross_margin
   Two refunds on one receipt run one after the other, and the second sees what the first refunded.
 - **Retries:** `Idempotency-Key` per refund attempt (unique per store). A replay returns the receipt
   with HTTP 200, and a key reused on a different receipt is a 409.
+
+### Inventory (`GET /api/v1/inventory/movements`, `GET /api/v1/inventory/summary`)
+
+Read-only views of the `stock_movements` ledger. Owners and managers only (`CanManageInventory`):
+the ledger shows who changed stock and the summary shows stock value at cost. Cashiers get 403
+and see stock levels on the product list instead.
+
+| Figure | Definition |
+|---|---|
+| Ledger | Every movement in the store, newest first (`created_at`, then id), 25 per page by default |
+| Filters | `reason`, `q` (product name or SKU, partial, LIKE wildcards escaped), `product_id`, `user_id`, `start`/`end` (store days, both included; end before start is a 422) |
+| Source | The sale (`S-000123`), refund (`R-000007`, linked to its receipt) or purchase order (`PO-000004`) behind a movement; none for opening stock and adjustments |
+| Stock value | Σ units on hand × each product's **current** cost (latest-cost rule), active products only. An estimate, not FIFO |
+| Low / out of stock | Same thresholds as the product list: 1 … reorder level / 0 |
+| People | Members who have changed stock in this store (the "who" filter offers only names that match something) |
+
+- One query joins each movement to its product, author, sale, refund and delivery (outer joins),
+  so a page costs two queries (count + rows) however many sources it shows.
+- Index `ix_stock_movements_organization_created (organization_id, created_at)` serves the
+  newest-first scan and date ranges.
+- The web page is a plain GET form: every view has a URL. Empty fields are dropped by a redirect,
+  so a shared link only says what is filtered.
 
 ### Authentication and roles
 

@@ -44,6 +44,8 @@ class StockMovement(UUIDPrimaryKeyMixin, Base):
         # Same Idempotency-Key twice = same request retried; the second one must not apply.
         UniqueConstraint("organization_id", "idempotency_key"),
         Index("ix_stock_movements_product_created", "product_id", "created_at"),
+        # The store-wide ledger: newest first, optionally within a date range.
+        Index("ix_stock_movements_organization_created", "organization_id", "created_at"),
     )
 
     organization_id: Mapped[uuid.UUID] = mapped_column(

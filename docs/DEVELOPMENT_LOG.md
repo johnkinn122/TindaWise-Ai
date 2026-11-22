@@ -4,6 +4,61 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Inventory page (`feature/inventory-page`)
+
+### Decision (owner)
+- Owners and managers only. Cashiers see a notice pointing to Products for stock levels.
+
+### Built
+- API `GET /api/v1/inventory/movements`: the store-wide ledger, newest first, paginated, filtered by
+  reason, product search (name/SKU), product id, person and store-day range. Each row carries the
+  product, who made it, and its source (sale, refund or purchase order) with its number.
+- API `GET /api/v1/inventory/summary`: active products, units on hand, stock value at current cost,
+  low and out-of-stock counts, and the people who have changed stock (for the filter).
+- Migration `0524a3c9f00c`: index `(organization_id, created_at)` on `stock_movements`. No new tables.
+- Web `/inventory` (replaces the "planned" placeholder): KPI strip, then a filter row (GET form; empty
+  fields dropped from the URL by a redirect) above the ledger table with pagination. Source links
+  open the receipt or purchase order; product names open the product. A one-product view has a
+  removable chip. On phones, date, reason and source fold under the product name.
+- Product page: "See all in Inventory" under Stock history (owners and managers).
+
+### Verified
+- pytest 154/154 (141 before), 13 in `test_inventory_ledger.py`: every movement kind with its
+  source, filters (reason, product, search incl. literal `%` and `_`, person), store-day boundaries
+  (00:30 Manila counts for that day), end-before-start 422, pages, summary figures with an
+  archived product excluded, people list, cashier 403, signed-out 401, other store isolation.
+- Vitest 114/114 (106 before): URL parsing (malformed values dropped), links, source labels,
+  change signs, KPI wording.
+- Playwright: 86 of 87 passed in the full run; the one failure was a mistake in the new cashier
+  test (its text match also found the notice). Fixed it, and `cashier.spec.ts` then passed 10/10.
+  New: sell → ledger search → receipt link; reason filter; product page → one-product ledger →
+  remove chip; bad range explained; no-match empty state; cashier notice; phone fit; axe on
+  `/inventory` in both themes and on the filtered view.
+- `alembic upgrade` / `downgrade -1` / `upgrade` on the dev database; `alembic check` clean.
+  Typecheck, ESLint and Ruff pass.
+- Manual (running app, demo data): 1440px, 1280px, 1024px light; 390px dark; cashier. No horizontal
+  overflow, no console errors.
+
+### Found and fixed
+- At 1024px the ledger widened the whole page by 52px (a grid item's minimum width follows its
+  content). `min-w-0` on the section; the "By" column now shows from 1280px, and below that the
+  name sits under the date.
+- Sale, refund and delivery movements repeat their own number in the note ("Receipt S-000052");
+  the note is shown only when there is no source link.
+- The "who" filter first listed every member, including test cashiers who never changed stock. It
+  now lists only people who appear in the ledger.
+- Removed the navigation test for the "Inventory is planned" placeholder: no planned pages remain.
+- The API dev server didn't reload after new files were added (OneDrive file watching). Restarting
+  `npm run dev:api` fixed it.
+
+### Known issues / open items
+- Stock value uses current cost, not FIFO or average cost.
+- No CSV export of the ledger yet.
+- `PlannedModule` has no users now; kept for the planned ML and AI pages.
+- The date fields use the browser's date picker, whose format follows the device's locale.
+
+---
+
 ## 2026-11-22 — Sales history and refunds (`feature/refunds`)
 
 ### Built

@@ -28,7 +28,9 @@ and (planned) sales, suppliers, demand forecasting and an AI business copilot.
   purchases by supplier, with CSV downloads. Owners and managers only.
 - **Products:** search, filter by stock status and category, sort, paginate, add, edit, archive.
 - **Inventory:** stock adjustments with reasons (received, returned, damaged, sold, count correction)
-  and a full stock history per product.
+  and a full stock history per product. The Inventory page shows stock value, units on hand, low and
+  out-of-stock counts, and a store-wide ledger of every stock change, filterable by product, reason,
+  person and dates, each linked to its sale, refund or purchase order. Owners and managers only.
 - **Safety:** stock can't go below zero even with simultaneous sales (row locks + database checks),
   retried requests are applied once (idempotency keys), and money is stored as exact decimals.
 - **Accessibility:** WCAG 2.2 AA checks run automatically in light and dark mode.
@@ -100,7 +102,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md
 
 1. **Core platform**: ✅ products and inventory · ✅ sign-in and roles · ✅ point of sale ·
    ✅ real Overview · ✅ suppliers and purchase orders · ✅ reports · ✅ sales history and refunds ·
-   📋 inventory page (store-wide ledger)
+   ✅ inventory page (store-wide ledger)
 2. **Machine learning** (planned): demand forecasting, stockout risk, anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)

@@ -16,6 +16,7 @@ const pages = [
   "/",
   "/sell",
   "/sales",
+  "/inventory",
   "/products",
   "/products/new",
   "/suppliers",

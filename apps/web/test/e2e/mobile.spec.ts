@@ -19,3 +19,15 @@ test("the product list fits the screen and shows stock status", async ({ page })
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("the inventory ledger fits the screen and keeps change and balance", async ({ page }) => {
+  await page.goto("/inventory");
+  await expect(page.getByRole("heading", { name: "Stock changes" })).toBeVisible();
+  // When, reason and source fold under the product name; the two numbers stay as columns.
+  await expect(page.getByRole("columnheader", { name: "Change" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Balance" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "When" })).toBeHidden();
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
