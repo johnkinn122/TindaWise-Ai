@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ReorderCard } from "@/components/dashboard/reorder-card";
 import type { Overview } from "@/lib/api/types";
-import { buildKpis, buildWeeklySales, compareCounts, niceTicks, storeWeekday, weeklySummary } from "@/lib/overview";
+import { niceTicks } from "@/lib/chart";
+import { buildKpis, buildWeeklySales, compareCounts, storeWeekday, weeklySummary } from "@/lib/overview";
 
 const week = ["15", "16", "17", "18", "19", "20", "21"].map((d, i) => ({
   date: `2026-11-${d}`,

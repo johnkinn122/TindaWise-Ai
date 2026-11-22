@@ -12,6 +12,12 @@ export function toCents(value: string | number): number {
   return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
 }
 
+/** Like toCents, but for API amounts that can be negative (a loss): "-5.00" → -500. */
+export function signedCents(value: string): number {
+  const text = value.trim();
+  return text.startsWith("-") ? -toCents(text.slice(1)) : toCents(text);
+}
+
 /** 1650 → "16.50" (for sending to the API). */
 export function centsToDecimal(cents: number): string {
   return (cents / 100).toFixed(2);

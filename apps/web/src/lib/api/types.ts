@@ -200,3 +200,52 @@ export interface PurchaseOrder extends PurchaseOrderSummary {
   history: { action: "created" | "approved" | "received" | "closed" | "cancelled"; at: string; by: string | null }[];
   updated_at: string;
 }
+
+export type ReportPreset = "today" | "yesterday" | "last_7_days" | "last_30_days" | "this_month" | "last_month";
+export type ReportProductSort = "sales" | "gross_profit" | "quantity";
+
+export interface ReportPeriod {
+  /** Store-local calendar days, both included: "2026-11-16". */
+  start: string;
+  end: string;
+  days: number;
+}
+
+export interface ReportSummary {
+  sales: string;
+  transactions: number;
+  average_sale: string | null;
+  gross_profit: string;
+  /** Ratio string ("0.2240"); null with no sales. */
+  gross_margin: string | null;
+  items_sold: number;
+}
+
+/** GET /reports/sales (owners and managers). */
+export interface SalesReport {
+  timezone: string;
+  currency: string;
+  period: ReportPeriod;
+  previous_period: ReportPeriod;
+  granularity: "day" | "week" | "month";
+  summary: ReportSummary;
+  previous_summary: ReportSummary;
+  /** One point per day/week/month, zero-filled; `start` is the bucket's first day. */
+  series: { start: string; sales: string; transactions: number; gross_profit: string }[];
+  products: {
+    product_id: string;
+    name: string;
+    sku: string;
+    unit: string;
+    quantity: number;
+    sales: string;
+    gross_profit: string;
+    gross_margin: string | null;
+  }[];
+  product_count: number;
+  product_sort: ReportProductSort;
+  categories: { category_id: string | null; name: string; quantity: number; sales: string; gross_profit: string }[];
+  payments: { method: "cash" | "e_wallet"; sales: string; transactions: number }[];
+  suppliers: { supplier_id: string; name: string; received_value: string; deliveries: number }[];
+  purchases_total: string;
+}

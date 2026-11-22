@@ -6,6 +6,7 @@
 
 import type { Overview, StockStatus, StockWatchItem } from "@/lib/api/types";
 import { formatNumber, formatPercent, formatPesoWhole } from "@/lib/format";
+import { percentChange, pointChange } from "@/lib/compare";
 import { toCents } from "@/lib/money";
 
 export interface Kpi {
@@ -43,18 +44,15 @@ export function storeWeekday(overview: Pick<Overview, "as_of" | "timezone">): st
 
 /** Percent change against the same weekday last week. No baseline, no percentage. */
 export function compareCounts(current: number, previous: number, weekday: string): Pick<Kpi, "change" | "trend"> {
-  if (previous === 0) return { change: `No sales last ${weekday}`, trend: "neutral" };
-  const percent = Math.round(((current - previous) / previous) * 100);
-  if (percent === 0) return { change: `Same as last ${weekday}`, trend: "neutral" };
-  return { change: `${Math.abs(percent)}% vs last ${weekday}`, trend: percent > 0 ? "up" : "down" };
+  return percentChange(current, previous, { against: `last ${weekday}`, noBaseline: `No sales last ${weekday}` });
 }
 
 function compareMargins(current: string | null, previous: string | null, weekday: string): Pick<Kpi, "change" | "trend"> {
-  if (current === null) return { change: "No sales yet today", trend: "neutral" };
-  if (previous === null) return { change: `No sales last ${weekday}`, trend: "neutral" };
-  const points = Math.round((Number(current) - Number(previous)) * 1000) / 10;
-  if (points === 0) return { change: `Same as last ${weekday}`, trend: "neutral" };
-  return { change: `${Math.abs(points).toFixed(1)} pts vs last ${weekday}`, trend: points > 0 ? "up" : "down" };
+  return pointChange(current, previous, {
+    against: `last ${weekday}`,
+    noBaseline: `No sales last ${weekday}`,
+    noCurrent: "No sales yet today",
+  });
 }
 
 /**
@@ -150,16 +148,4 @@ export function buildStockItems(items: StockWatchItem[]): StockItem[] {
     onHand: item.stock_on_hand,
     status: item.stock_status,
   }));
-}
-
-/**
- * Y-axis ticks: five evenly spaced round numbers (0 and four steps) that cover `max`.
- * Steps are 1, 2, 2.5 or 5 times a power of ten, so labels stay readable.
- */
-export function niceTicks(max: number): number[] {
-  const rough = Math.max(max, 1) / 4;
-  const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((candidate) => candidate >= rough) ?? 10 * magnitude;
-  const safeStep = Math.max(step, 50); // an empty week still shows ₱0–₱200, not ₱0–₱1
-  return [0, 1, 2, 3, 4].map((i) => i * safeStep);
 }

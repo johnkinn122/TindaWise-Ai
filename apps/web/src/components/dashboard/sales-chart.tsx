@@ -13,7 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatPeso, formatPesoWhole } from "@/lib/format";
-import { type DailySales, niceTicks } from "@/lib/overview";
+import { compactPeso, niceTicks } from "@/lib/chart";
+import type { DailySales } from "@/lib/overview";
 import { Panel } from "./panel";
 
 // A forecast series (dashed, so it is never mistaken for actuals) returns with the ML phase.
@@ -22,13 +23,6 @@ const series = [
   { key: "lastWeek", label: "Last week", color: "var(--chart-2)", dashed: false },
 ] as const;
 
-const compactPesoFormatter = new Intl.NumberFormat("en-PH", {
-  style: "currency",
-  currency: "PHP",
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-const compactPeso = (value: number) => compactPesoFormatter.format(value);
 
 interface SalesChartProps {
   title?: string;
