@@ -3,6 +3,8 @@
 - generate: write the synthetic history to a CSV file
 - backtest: score the baselines and LightGBM on the test period and print Markdown tables
 - tune: score LightGBM settings on the validation period (never the test period)
+- policies: replay the test period with reorder policies
+- anomalies: plant labelled anomalies and score the detectors
 
 `backtest` and `tune` use the synthetic history unless `--csv` points at an exported table
 (services/api `scripts.export_demand`).
@@ -16,6 +18,8 @@ from datetime import date, timedelta
 
 import pandas as pd
 
+from tindawise_ml.anomalies import evaluate as evaluate_anomalies
+from tindawise_ml.anomalies import inject_anomalies
 from tindawise_ml.backtest import run_backtest, score, score_totals, tiling_origins
 from tindawise_ml.baselines import BASELINES, in_stock_moving_average, moving_average
 from tindawise_ml.data import load_demand_csv
@@ -152,6 +156,13 @@ def main(argv: list[str] | None = None) -> int:
         "--baselines-only", action="store_true", help="skip LightGBM (much faster)"
     )
 
+    anomalies = commands.add_parser(
+        "anomalies", help="plant labelled anomalies and score the detectors (synthetic only)"
+    )
+    _history_args(anomalies, csv=False)
+    anomalies.add_argument("--rate", type=float, default=0.02, help="share of product-days")
+    anomalies.add_argument("--period-days", type=int, default=84)
+
     args = parser.parse_args(argv)
     source = getattr(args, "csv", None)
     start = _first_day(args)
@@ -164,6 +175,30 @@ def main(argv: list[str] | None = None) -> int:
         history.to_csv(args.out, index=False)
         print(f"Wrote {len(history):,} rows to {args.out}")
         print(_describe(history, None))
+        return 0
+
+    if args.command == "anomalies":
+        test_start = history["date"].max() - pd.Timedelta(days=args.period_days - 1)
+        validation_start = test_start - pd.Timedelta(days=args.period_days)
+        planted, labels = inject_anomalies(
+            history, rate=args.rate, seed=args.seed, start=validation_start
+        )
+        table = evaluate_anomalies(
+            planted, labels, validation_start=validation_start, test_start=test_start
+        )
+        for column in ("precision", "recall"):
+            table[column] = table[column].map(lambda v: "n/a" if pd.isna(v) else f"{v:.0%}")
+        for column in ("threshold", "f1", "false_per_week", "avg_precision"):
+            table[column] = table[column].map(lambda v: f"{v:.2f}")
+        print(_describe(history, None))
+        print(
+            f"\nPlanted {len(labels)} anomalies ({(labels['kind'] == 'spike').sum()} spikes, "
+            f"{(labels['kind'] == 'drop').sum()} drops) from {validation_start.date()}. "
+            f"Thresholds chosen on {validation_start.date()} to "
+            f"{(test_start - pd.Timedelta(days=1)).date()}; "
+            f"scored on {test_start.date()} onwards.\n"
+        )
+        print(_markdown(table.sort_values(["kind", "avg_precision"], ascending=[True, False])))
         return 0
 
     if args.command == "policies":

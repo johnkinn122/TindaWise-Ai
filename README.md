@@ -100,6 +100,7 @@ store at `/signup`.
 | `npm run backtest:ml` | Score the baselines and LightGBM on synthetic history (about 10 s) |
 | `npm run tune:ml` | Score LightGBM settings on the validation period (a few minutes; not in CI) |
 | `npm run policies:ml` | Replay the test period with the current reorder rule vs forecast-based ordering (a few minutes; not in CI) |
+| `npm run anomalies:ml` | Plant labelled anomalies in synthetic history and score the detectors |
 
 CI runs all of them on every pull request.
 
@@ -122,7 +123,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
 2. **Machine learning** (in progress): ✅ forecasting baselines and backtest on synthetic data ·
    ✅ LightGBM forecaster (synthetic data) · ✅ demand export from the database ·
    ✅ reorder policy simulation (synthetic data) · ✅ demand-based reorder suggestions in the app ·
-   📋 anomaly detection
+   ✅ anomaly detection experiments (synthetic data) · 📋 anomaly alerts in the app
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)
 

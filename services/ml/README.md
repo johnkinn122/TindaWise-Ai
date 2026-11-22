@@ -41,12 +41,17 @@ No database needed.
 .venv/Scripts/python -m tindawise_ml policies
 .venv/Scripts/python -m tindawise_ml policies --cover 10 --safety 1 --seed 3 --lead-seed 3
 
+# Plant labelled anomalies (sales spikes, zero-sale days) and score three detectors: thresholds
+# chosen on the validation period, scored on the test period. Synthetic data only.
+.venv/Scripts/python -m tindawise_ml anomalies
+.venv/Scripts/python -m tindawise_ml anomalies --seed 3 --rate 0.05
+
 # Run on a table exported from the database (services/api scripts.export_demand) instead.
 # No oracle row: that needs the generator's formula.
 .venv/Scripts/python -m tindawise_ml backtest --csv demand.csv
 ```
 
-From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run policies:ml`, `npm run test:ml`, `npm run lint:ml`.
+From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run policies:ml`, `npm run anomalies:ml`, `npm run test:ml`, `npm run lint:ml`.
 
 ## Layout
 
@@ -59,6 +64,7 @@ From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run policies:
 | `gbm.py` | The LightGBM forecaster and its tuned settings |
 | `tuning.py` | The settings grid, scored on the validation period only |
 | `inventory.py` | Reorder policy simulation: the app's current rule vs forecast-based ordering |
+| `anomalies.py` | Labelled anomaly injection, three detectors (ratio, robust z, count tail), evaluation |
 | `metrics.py` | MAE, RMSE, WAPE, bias |
 | `backtest.py` | Rolling-origin backtest; daily and window-total scoring (stockout days skipped) |
-| `__main__.py` | The `generate`, `backtest`, `tune` and `policies` commands |
+| `__main__.py` | The `generate`, `backtest`, `tune`, `policies` and `anomalies` commands |

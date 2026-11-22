@@ -20,7 +20,8 @@
     "lint:ml": "node scripts/ml.mjs lint",
     "backtest:ml": "node scripts/ml.mjs backtest",
     "tune:ml": "node scripts/ml.mjs tune",
-    "policies:ml": "node scripts/ml.mjs policies"
+    "policies:ml": "node scripts/ml.mjs policies",
+    "anomalies:ml": "node scripts/ml.mjs anomalies"
   },
   "engines": {
     "node": ">=22"

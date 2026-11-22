@@ -5,6 +5,74 @@ show. Commands are from `services/ml` with its virtual environment.
 
 ---
 
+## 2026-11-23 — Anomaly detection on planted anomalies (`feature/ml-anomalies`)
+
+### Why
+CLAUDE.md §7: detect unusual sales patterns. A spike can be a bulk buyer or a duplicate entry.
+A day with no sales for a product that sells every day, while it was in stock, can mean sales
+went unrecorded. Both are worth a second look, and most days are not.
+
+### Setup
+- Synthetic history (17 products, 730 days). From the start of the validation period, 2% of
+  in-stock product-days get a labelled anomaly:
+  - **Spike:** + max(5, 3 × the product's usual daily sales).
+  - **Drop:** the day's sales set to 0, only for products that usually sell 3+ a day (for a
+    slow seller a zero day is normal).
+- Three detectors score each product-day from the **previous 28 days, in-stock days only**
+  (at least 14 needed). High and low are separate alerts with separate thresholds:
+  - **ratio (baseline):** log((y + 1) / (recent average + 1)).
+  - **robust_z:** (y − median) / (1.4826 × MAD + 0.5).
+  - **count_tail:** −log10 of the negative binomial tail probability with the recent mean and
+    variance (Poisson when not overdispersed).
+- The threshold for each detector and kind (best F1) is chosen on the validation period (84
+  days), then scored once on the test period (the last 84 days). The data's own patterns
+  (paydays, Christmas, noise) aren't labelled, so flagging them counts as a false alarm.
+- Command: `python -m tindawise_ml anomalies [--seed N]`. Six datasets (seeds 42, 1-5).
+
+### Results (test periods, six datasets)
+
+| kind | detector | avg precision, mean (range) | precision | recall | false alarms / week |
+|---|---|---|---|---|---|
+| drop | **ratio (baseline)** | **0.66** (0.39-0.86) | 56% | 52% | 0.24 |
+| drop | count_tail | 0.52 (0.36-0.79) | 43% | 43% | 0.33 |
+| drop | robust_z | 0.29 (0.06-0.58) | 16% | 24% | 0.72 |
+| spike | **ratio (baseline)** | **0.50** (0.40-0.63) | 50% | 49% | 0.79 |
+| spike | count_tail | 0.45 (0.32-0.56) | 45% | 47% | 0.94 |
+| spike | robust_z | 0.30 (0.22-0.34) | 33% | 32% | 1.06 |
+
+Precision and recall are pooled over the six test periods (42 drops, 116 spikes in total).
+False alarms are for the whole store (17 products).
+
+The ratio baseline had the best average precision on 5 of 6 datasets for drops, and on 4 of 6
+for spikes. count_tail won the rest.
+
+### What this shows
+- **The simple ratio is the best detector here**, the third time in this phase that a plain
+  method matched or beat a fancier one. Its seed-42 thresholds read as plain rules: "a product
+  that usually sells about 6.5+ a day sold nothing while in stock", and "sold more than about
+  3× its usual".
+- **Drops are easier than spikes.** A zero day stands out against a steady seller, while a
+  spike competes with the data's real heavy-tailed big days (paydays, December, noise).
+- **The robust z-score does worst** despite resisting outliers. MAD is often 0 or 1 for low
+  counts, so its scale is crude. The count model handles low counts properly but estimates
+  its variance from a window that contains earlier anomalies and big days.
+- At these thresholds, a store would see about 1 false alarm a week in total. That's a
+  tolerable level for a "worth a look" list.
+
+### What this does not show
+- **Real anomalies.** The planted ones follow rules I chose, and a real duplicate entry or
+  missing sale may look different.
+- **Stable numbers.** There are only 4-11 drops per test period, so one dataset's figures
+  swing widely (drop F1 from 0.00 to 0.78). The six-dataset averages are the figures to quote.
+- **Weekday effects.** No detector adjusts for them; the synthetic weekday effect is mild.
+- **Stock anomalies** (shrinkage, theft). They need a simulation of count corrections first.
+
+### Next
+Show the ratio check in the app as a short nightly "worth a look" list. That needs somewhere to
+show alerts and to dismiss them.
+
+---
+
 ## 2026-11-23 — In-stock average for the app's reorder rule (`feature/forecast-reorder`)
 
 ### Why
