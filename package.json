@@ -18,7 +18,8 @@
     "lint:api": "node scripts/api.mjs lint",
     "test:ml": "node scripts/ml.mjs test",
     "lint:ml": "node scripts/ml.mjs lint",
-    "backtest:ml": "node scripts/ml.mjs backtest"
+    "backtest:ml": "node scripts/ml.mjs backtest",
+    "tune:ml": "node scripts/ml.mjs tune"
   },
   "engines": {
     "node": ">=22"

@@ -4,6 +4,58 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — ML: LightGBM forecaster (`feature/ml-lightgbm`)
+
+### Built
+- `features.py`: direct multi-horizon feature rows (origin, h, product) built from days up to
+  the origin only. Recent means, std, same weekday in past weeks, an in-stock-only mean,
+  stockout share, target-day calendar (weekday, day, payday, month). Stockout days are dropped
+  as labels.
+- `gbm.py`: one LightGBM model for all products (Poisson objective, deterministic settings),
+  retrained at every origin. Native LightGBM API, so no scikit-learn dependency.
+- `tuning.py` + `python -m tindawise_ml tune`: an 18-setting grid scored on the validation
+  period (the 84 days before the test period) only.
+- Backtest now also reports **bias** and **7-day totals per product**, and on synthetic data an
+  **oracle floor** (true mean demand). `tiling_origins(before_days=…)` gives the validation period.
+- Forecasters receive a `History` (sold + stockout tables) instead of the sold table alone.
+  The baselines' numbers are unchanged (checked before and after).
+- `npm run tune:ml`. `lightgbm>=4.5` added to `services/ml/pyproject.toml`.
+
+### Results (synthetic data; full tables in `docs/ml/EXPERIMENTS.md`)
+- Tuning: every setting landed between 49.7% and 50.6% daily WAPE on validation. The oracle
+  floor is 49.6%, so daily scores barely separate methods on this data. Chose 7 leaves,
+  min 200 per leaf, 300 rounds.
+- Test period, run once (seed 42): LightGBM 7-day WAPE **20.8%** vs moving average 22.6%
+  (oracle floor 20.0%); daily 49.7% vs 50.5%; bias −4.4% vs −6.1%.
+- Same settings on seeds 1-5: LightGBM better on 7-day totals every time (by 1.4-2.6 points).
+  Daily, it was better on 5 of 6; on seed 2 the moving average won by 0.3 points.
+
+### Verified
+- ML pytest 72/72 with warnings as errors (49 before). New: hand-checked feature values (windows,
+  same-weekday lookbacks, calendar of the target day, in-stock mean around stockouts), stockout
+  days never used as labels, labels never past the last known day, forecast shape/dates,
+  same data → same forecast, learns a weekend pattern, **leakage test now includes LightGBM**
+  (sales and stockout flags after the origin changed → identical forecasts), validation
+  windows end before the test period, tuning never touches the test period, bias and 7-day
+  totals hand-checked, oracle equals the generator's mean.
+- A fresh virtual environment installed from `pyproject.toml` passes all 72.
+- Ruff check and format clean.
+- **Not yet verified:** the CI job with LightGBM on Linux. It runs on this branch's PR.
+
+### Found and fixed
+- pandas 3 deprecates `DatetimeIndex.weekday` (caught by `-W error`); now `day_of_week`.
+- My first oracle helper guessed where the trend starts. `expected_demand` now takes an
+  explicit `start`, and the oracle passes the history's first day. A test checks it.
+
+### Known issues / open items
+- Everything is still synthetic. The model's features match the generator's effects, which
+  makes this data friendly to it.
+- The model has seen only one December before the test period's December.
+- Skipping stockout days biases scores toward under-forecasting a little (oracle bias +0.6% to +5.2%).
+- Tuning takes about 3 minutes, so it is not in CI. CI runs the backtest (about 10 s).
+
+---
+
 ## 2026-11-22 — ML: forecasting baselines on synthetic history (`feature/ml-baselines`)
 
 First step of the machine learning phase (roadmap: Core Platform → **ML** → AI Agents → Deployment).

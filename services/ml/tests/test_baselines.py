@@ -3,12 +3,14 @@ import pandas as pd
 import pytest
 
 from tindawise_ml.baselines import BASELINES, moving_average, naive, seasonal_naive
+from tindawise_ml.data import History
 
 
-def make_history(values_by_sku: dict[str, list[int]], start: str = "2025-03-03") -> pd.DataFrame:
+def make_history(values_by_sku: dict[str, list[int]], start: str = "2025-03-03") -> History:
     length = len(next(iter(values_by_sku.values())))
     index = pd.date_range(start, periods=length, freq="D")
-    return pd.DataFrame(values_by_sku, index=index)
+    sold = pd.DataFrame(values_by_sku, index=index)
+    return History(sold=sold, stockout=pd.DataFrame(False, index=index, columns=sold.columns))
 
 
 def test_naive_repeats_the_last_day():

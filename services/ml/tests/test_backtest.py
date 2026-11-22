@@ -3,9 +3,10 @@ import math
 import pandas as pd
 import pytest
 
-from tindawise_ml.backtest import run_backtest, score, tiling_origins
+from tindawise_ml.backtest import run_backtest, score, score_totals, tiling_origins
 from tindawise_ml.baselines import BASELINES, naive
 from tindawise_ml.data import DemandFrameError
+from tindawise_ml.gbm import make_lightgbm_forecaster
 from tindawise_ml.synthetic import generate_history
 
 
@@ -34,10 +35,25 @@ def test_origins_tile_the_test_period(history):
     assert origins[-1] + pd.Timedelta(days=7) == last
 
 
-@pytest.mark.parametrize(("test_days", "horizon"), [(10, 7), (0, 7), (7, 0)])
-def test_origins_reject_uneven_periods(history, test_days, horizon):
+def test_validation_origins_end_where_the_test_period_starts(history):
+    test = tiling_origins(history, test_days=28, horizon=7)
+    validation = tiling_origins(history, test_days=28, horizon=7, before_days=28)
+    # The last validation window ends on the test period's first origin: no shared day.
+    assert validation[-1] + pd.Timedelta(days=7) == test[0]
+    assert len(validation) == 4
+
+
+@pytest.mark.parametrize(
+    ("test_days", "horizon", "before_days"), [(10, 7, 0), (0, 7, 0), (7, 0, 0), (7, 7, -1)]
+)
+def test_origins_reject_uneven_periods(history, test_days, horizon, before_days):
     with pytest.raises(ValueError):
-        tiling_origins(history, test_days=test_days, horizon=horizon)
+        tiling_origins(history, test_days=test_days, horizon=horizon, before_days=before_days)
+
+
+def test_origins_reject_a_period_before_the_data(history):
+    with pytest.raises(ValueError, match="before the data"):
+        tiling_origins(history, test_days=98, horizon=7, before_days=105)  # 203 days > 200
 
 
 def test_every_test_day_is_forecast_once_per_model(history):
@@ -57,9 +73,11 @@ def test_no_leakage_changing_the_future_does_not_change_forecasts(history):
     tampered = history.copy()
     after = tampered["date"] > first
     tampered.loc[after, "units_sold"] = tampered.loc[after, "units_sold"] * 10 + 99
+    tampered.loc[after, "stockout"] = ~tampered.loc[after, "stockout"]
 
-    original = run_backtest(history, BASELINES, [first], horizon=7)
-    changed = run_backtest(tampered, BASELINES, [first], horizon=7)
+    every_model = {**BASELINES, "lightgbm": make_lightgbm_forecaster()}
+    original = run_backtest(history, every_model, [first], horizon=7)
+    changed = run_backtest(tampered, every_model, [first], horizon=7)
     pd.testing.assert_series_equal(original["forecast"], changed["forecast"])
     # ...while the actuals it is scored against did change, so the test can tell the difference.
     assert not original["actual"].equals(changed["actual"])
@@ -83,6 +101,26 @@ def test_stockout_days_are_skipped_in_scoring():
     assert scored["skipped_stockout_days"] == 1
     assert scored["mae"] == pytest.approx((0 + 2) / 2)
     assert scored["wape"] == pytest.approx(2 / 12)
+    assert scored["bias"] == pytest.approx((10 - 12) / 12)
+
+
+def test_window_totals_compare_the_same_days():
+    # naive forecasts 5 a day for days 8-10; day 9 is a stockout, so both totals cover days 8, 10.
+    frame = tiny_frame([5] * 7 + [5, 0, 7], stockout=[False] * 8 + [True, False])
+    forecasts = run_backtest(frame, {"naive": naive}, [frame["date"][6]], horizon=3)
+    totals = score_totals(forecasts).iloc[0]
+    assert totals["scored_windows"] == 1
+    assert totals["mae"] == pytest.approx(abs(10 - 12))
+    assert totals["wape"] == pytest.approx(2 / 12)
+    assert totals["bias"] == pytest.approx(-2 / 12)
+
+
+def test_window_totals_let_daily_errors_cancel():
+    # Off by 2 every day, alternating up and down: big daily error, exact weekly total.
+    frame = tiny_frame([4] * 7 + [2, 6, 2, 6])
+    forecasts = run_backtest(frame, {"naive": naive}, [frame["date"][6]], horizon=4)
+    assert score(forecasts).iloc[0]["mae"] == pytest.approx(2)
+    assert score_totals(forecasts).iloc[0]["mae"] == pytest.approx(0)
 
 
 def test_score_by_sku(history):

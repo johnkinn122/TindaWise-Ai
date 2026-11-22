@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.1",
     "pandas>=2.2",
+    "lightgbm>=4.5",  # native API only, so scikit-learn isn't needed
 ]
 
 [project.optional-dependencies]

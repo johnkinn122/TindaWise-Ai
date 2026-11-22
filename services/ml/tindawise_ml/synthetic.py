@@ -109,14 +109,49 @@ def is_payday(day: date) -> bool:
     return day.day in (1, 15, 16, last)
 
 
-def expected_demand(profile: ProductProfile, days: pd.DatetimeIndex) -> np.ndarray:
-    """Mean demand for each day before noise."""
-    start = days[0]
+def expected_demand(
+    profile: ProductProfile, days: pd.DatetimeIndex, start: date | None = None
+) -> np.ndarray:
+    """Mean demand for each day before noise. The trend counts from `start` (default: the first
+    of `days`)."""
+    origin = pd.Timestamp(start) if start is not None else days[0]
     weekday = np.array([WEEKDAY_FACTOR[d.weekday()] for d in days])
     payday = np.array([1.0 + profile.payday_lift if is_payday(d.date()) else 1.0 for d in days])
     month = np.array([MONTH_FACTOR[d.month] * profile.season.get(d.month, 1.0) for d in days])
-    trend = 1.0 + ANNUAL_TREND * ((days - start).days.to_numpy() / 365.0)
+    trend = 1.0 + ANNUAL_TREND * ((days - origin).days.to_numpy() / 365.0)
     return profile.base_daily * weekday * payday * month * trend
+
+
+ORACLE = "oracle (true mean, synthetic only)"
+
+
+def oracle_forecasts(
+    forecasts: pd.DataFrame,
+    *,
+    start: date = DEFAULT_START,
+    profiles: tuple[ProductProfile, ...] = DEMO_PROFILES,
+) -> pd.DataFrame:
+    """Rows shaped like a backtest's forecasts whose "forecast" is the true expected demand.
+
+    A diagnostic, not a forecaster: it knows the generator's formula, which no model of real data
+    could. Its error is the noise left after every pattern is known, so it shows how close to the
+    best possible score the real forecasters are. (Means minimise squared error, not absolute
+    error, so a model can occasionally score slightly below it on MAE or WAPE.)
+
+    `start` must be the history's first day, where the trend starts.
+    """
+    one_model = forecasts[forecasts["model"] == forecasts["model"].iloc[0]].copy()
+    by_sku = {p.sku: p for p in profiles}
+    expected = [
+        pd.Series(
+            expected_demand(by_sku[sku], pd.DatetimeIndex(rows["date"]), start=start),
+            index=rows.index,
+        )
+        for sku, rows in one_model.groupby("sku")
+    ]
+    one_model["forecast"] = pd.concat(expected)
+    one_model["model"] = ORACLE
+    return one_model
 
 
 def _rng_for(seed: int, sku: str) -> np.random.Generator:

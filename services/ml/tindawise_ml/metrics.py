@@ -6,6 +6,9 @@
 - WAPE (weighted absolute percentage error): total units off / total units sold. Unlike MAPE it
   doesn't blow up on zero-sales days, and it lets products of different volumes be pooled.
   0.30 means the forecasts were off by 30% of what was sold.
+- Bias: total forecast minus total sold, over total sold. Negative = under-forecasting, which
+  for a store means empty shelves; positive = over-forecasting, which means cash tied up in stock.
+  The three error measures above can't tell these apart.
 """
 
 from __future__ import annotations
@@ -43,3 +46,12 @@ def wape(actual: ArrayLike, forecast: ArrayLike) -> float:
     if total == 0:
         return float("nan")
     return float(np.sum(np.abs(a - f)) / total)
+
+
+def bias(actual: ArrayLike, forecast: ArrayLike) -> float:
+    """NaN when nothing was sold at all."""
+    a, f = _pair(actual, forecast)
+    total = np.sum(a)
+    if total == 0:
+        return float("nan")
+    return float(np.sum(f - a) / total)

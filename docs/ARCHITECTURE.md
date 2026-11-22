@@ -10,7 +10,7 @@ tindawise-ai/
 │   └── web/                 ✅ Next.js frontend: Overview, Products, Point of Sale, Suppliers, Purchase orders, Reports
 ├── services/
 │   ├── api/                 ✅ FastAPI backend: auth, products, inventory ledger, sales, overview, purchasing, reports
-│   └── ml/                  🚧 Forecasting: synthetic history, baselines, backtest (models planned)
+│   └── ml/                  🚧 Forecasting: synthetic history, baselines, LightGBM, backtest
 ├── packages/                📋 Shared TypeScript types and UI used across apps
 ├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); deploy planned
 ├── .github/workflows/       ✅ CI: web, api, e2e jobs
@@ -324,11 +324,11 @@ and see stock levels on the product list instead.
 | API | pytest on real PostgreSQL | `services/api/tests` | rules, constraints, concurrency, idempotency, isolation |
 | End-to-end | Playwright (Chromium, desktop + Pixel 7) | `apps/web/test/e2e` | product lifecycle, forms, filters, navigation, mobile drawer |
 | Accessibility | axe-core in Playwright | `apps/web/test/e2e/accessibility.spec.ts` | WCAG 2.2 A/AA rules, light + dark |
-| ML | pytest (no database) | `services/ml/tests` | metrics, data contract, synthetic history, baselines, leakage |
+| ML | pytest (no database) | `services/ml/tests` | metrics, data contract, synthetic history, features, baselines, LightGBM, tuning split, leakage |
 
 `.github/workflows/ci.yml` runs four jobs on every PR: **web** (types, lint, unit, build),
 **api** (Ruff, pytest with a PostgreSQL service), **ml** (Ruff, pytest with warnings as errors,
-and a backtest smoke run), and **e2e** (needs web and api: migrates and seeds a fresh database,
+and a backtest smoke run that trains LightGBM), and **e2e** (needs web and api: migrates and seeds a fresh database,
 then runs Playwright against the production build and the API).
 
 ### Cache Components and hidden pages
@@ -344,11 +344,11 @@ Consequences handled in the code:
 
 ## Machine learning — `services/ml`
 
-🚧 Forecasting baselines and their backtest are built. Nothing is wired into the API or the web
-app yet. Results: [`docs/ml/EXPERIMENTS.md`](ml/EXPERIMENTS.md).
+🚧 Built: baselines, a LightGBM forecaster, and a chronological backtest, all on synthetic data.
+Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS.md`](ml/EXPERIMENTS.md).
 
 - **Separate Python package** (`tindawise_ml`) with its own virtual environment and dependencies
-  (numpy, pandas). It doesn't import the API, so ML libraries never end up in the API's install,
+  (numpy, pandas, LightGBM). It doesn't import the API, so ML libraries never end up in the API's install,
   and the API doesn't need them to start. When forecasts reach the app, the API will read
   stored results instead of importing model code. That's planned, not built.
 - **One table contract** (`data.py`): one row per product per store-local day, zero-filled,
@@ -365,13 +365,27 @@ app yet. Results: [`docs/ml/EXPERIMENTS.md`](ml/EXPERIMENTS.md).
   sales up to its origin. A test changes every value after an origin and checks the forecasts stay
   identical. Another checks the synthetic-only `demand` column is never read.
 - **Metrics:** MAE, RMSE and WAPE (`metrics.py`). WAPE pools products of different volumes and
-  survives zero-sales days, where MAPE would divide by zero.
+  survives zero-sales days, where MAPE would divide by zero. Bias (signed) is added because
+  under-forecasting empties shelves and over-forecasting ties up cash, and the other three
+  can't tell those apart. Each is reported per day and on **7-day totals per product**, which is
+  what a reorder depends on and where daily noise partly cancels.
+- **Oracle floor (synthetic only):** the generator's true mean demand, scored like a forecast.
+  Its error is pure noise, so it shows how much room is left above any model.
 - **Baselines:** naive, seasonal naive (7 days), 28-day moving average. A model only counts as
   an improvement if it beats the best of these on the same test period.
+- **LightGBM forecaster** (`features.py`, `gbm.py`): one model for all products (the product is
+  a categorical feature, so slow movers borrow patterns from fast ones), Poisson objective
+  (counts, never negative). It is **direct multi-horizon**: a row is (origin, h, product), and
+  its features come only from days up to the origin. That avoids feeding predictions back in,
+  which compounds errors. Stockout days are dropped as labels so it doesn't learn to predict
+  empty shelves. It is retrained at each origin, exactly as it would run live. Fixed seed and
+  one thread make it repeatable.
+- **Three-way split by date:** training | validation (84 days) | test (84 days). `tune` scores
+  settings on validation only. The chosen settings are written into `gbm.DEFAULT_PARAMS` and
+  run on test once.
 
 | Planned next | Notes |
 |---|---|
-| LightGBM forecaster | Tuned on a validation period before the test period; test period used once |
 | Database loader | Same table from `sale_lines` (units sold on the sale's store day) and `stock_movements` |
 | Stockout risk and reorder quantities | Forecast vs stock on hand and lead time, replacing the fixed reorder rule |
 | Anomaly detection | Unusual sales and stock movements |

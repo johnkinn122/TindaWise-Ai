@@ -1,16 +1,22 @@
 from datetime import date
 
+import numpy as np
 import pandas as pd
 import pytest
 
+from tindawise_ml.backtest import run_backtest, tiling_origins
+from tindawise_ml.baselines import BASELINES
 from tindawise_ml.data import validate_demand_frame
 from tindawise_ml.synthetic import (
+    DEFAULT_START,
     DEMO_PROFILES,
+    ORACLE,
     ProductProfile,
     StockPolicy,
     expected_demand,
     generate_history,
     is_payday,
+    oracle_forecasts,
 )
 
 # The SKUs seeded by services/api/scripts/seed.py, so synthetic history can later be attached to
@@ -95,6 +101,29 @@ def test_expected_demand_applies_the_documented_effects():
     assert mean["2025-12-15"] / mean["2025-12-08"] == pytest.approx(1.25 * trend(15) / trend(8))
     # Tuesday x December store factor 1.25 x the product's own December factor 2.
     assert mean["2025-12-02"] == pytest.approx(10 * 0.92 * 1.25 * 2 * trend(2))
+
+
+def test_oracle_forecasts_are_the_true_mean_with_the_trend_from_the_first_day():
+    history = generate_history(days=120)
+    origins = tiling_origins(history, test_days=14, horizon=7)
+    forecasts = run_backtest(history, BASELINES, origins, horizon=7)
+    oracle = oracle_forecasts(forecasts)
+    assert (oracle["model"] == ORACLE).all()
+    assert len(oracle) == len(forecasts) / len(BASELINES)  # one row per product-day
+
+    profile = DEMO_PROFILES[0]
+    days = pd.date_range(DEFAULT_START, periods=120, freq="D")
+    truth = pd.Series(expected_demand(profile, days), index=days)
+    rows = oracle[oracle["sku"] == profile.sku].set_index("date")["forecast"]
+    np.testing.assert_allclose(rows.to_numpy(), truth.loc[rows.index].to_numpy())
+
+
+def test_expected_demand_trend_counts_from_start():
+    profile = DEMO_PROFILES[0]
+    one_day = pd.DatetimeIndex([pd.Timestamp("2025-01-01")])
+    a_year_in = expected_demand(profile, one_day, start=date(2024, 1, 1))
+    first_day = expected_demand(profile, one_day)
+    assert a_year_in[0] / first_day[0] == pytest.approx(1 + 0.08 * 366 / 365)
 
 
 def test_rejects_an_empty_range():
