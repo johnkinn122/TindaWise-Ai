@@ -4,6 +4,67 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — ML: demand table from the database + sample history store (`feature/ml-real-data`)
+
+### Decisions (owner)
+- The API service builds the table from the database (it owns the schema, time zones and
+  isolation), and ML reads an exported CSV. The ML package stays free of database code.
+- An opt-in script writes synthetic history into the database for an end-to-end check.
+
+### Decision (mine, explained in the PR)
+- The sample history goes into a **separate sample store**, not the demo store. The demo
+  products' ledgers already begin with their opening stock, so two years written before it
+  would break the `balance_after` chain. Also, Playwright runs against the demo store locally.
+
+### Built
+- API `app/services/demand_history.py` → `daily_demand(db, org, start, end)`: one row per
+  active product per store day. `units_sold` from `sale_lines` (refunds not subtracted).
+  `stockout` from the ledger (a movement ended at 0, or the carried balance was 0). Days
+  before a product existed count as stockouts. Uses three grouped queries plus a zero-fill.
+- `scripts/export_demand.py`: writes the contract CSV (default range: first product day to
+  yesterday).
+- `scripts/seed_sample_history.py` (opt-in, refused in production, refuses an existing sample
+  store): creates "Sample history store (synthetic)" with `sample-owner@example.com` and writes
+  the history as opening stock, morning deliveries, and receipts of 1-4 units spread over
+  08:00-20:00. Receipts are 25% e-wallet and 75% cash rounded up to ₱20, with one sale
+  movement per line. Bulk inserts; checks that the history replays without going negative and
+  ends before today.
+- ML: `generate` also writes `received` and `closing_stock`. `--end` sets the last day.
+  `load_demand_csv` reads and validates exported CSVs. `backtest/tune --csv` run on them (no
+  oracle row for real data).
+- `.gitignore`: `services/**/*.csv` (exports are business data).
+
+### Verified
+- API pytest 183/183 (29 new). Loader: store-day boundary (23:30 vs 00:30 Manila), zero-fill and
+  order, stockout until restocked, restocked the same day carries the *last* balance, damage
+  empties the shelf, balance carried in from before the range, product created mid-range,
+  never-stocked product, refunds don't reduce units, archived excluded, other store's sales and
+  stock never count, empty store, end before start. Seeder: database gives back the same
+  table, ledger chain and `stock_on_hand` agree, receipts numbered with totals = Σ lines,
+  same seed → same receipts, history checks, unknown SKUs. Export: CSV contents, defaults,
+  errors.
+- Mutation check on the loader: 4 deliberate bugs. 3 were caught at first. The 4th (reading a
+  day's first balance instead of its last) survived, so I added the "restocked the same day"
+  test, which catches it.
+- ML pytest 85/85 (13 new): stock columns add up, history unchanged by the new columns, CSV round
+  trip and contract errors, `--end`, `--start` with `--end` refused, backtest on a CSV.
+- **End to end on the dev database:** generate → seed (21,667 receipts, about 4 minutes) →
+  export (1 s) → 12,410 rows identical to the generated table, and identical backtest scores.
+- Overview and Reports on the sample store: last week's daily sales show, and Reports takes
+  0.06 s for 30 days and 0.13 s for a full year (11,125 receipts). Checked by calling the services
+  directly. No screens changed, so I didn't do a visual check.
+- Ruff clean in both services.
+
+### Known issues / open items
+- Seeding takes about 4 minutes (bulk inserts of about 120,000 rows). Fine for a one-off.
+- Sample prices and costs stay at today's catalogue values for the whole history.
+- A shelf that was empty overnight and restocked during the day isn't counted as a stockout.
+- Two movements of one product with the same timestamp have no defined order. Checkout and
+  refunds don't produce that today.
+- The sample store is only reachable with its own login (no store switching yet).
+
+---
+
 ## 2026-11-22 — ML: LightGBM forecaster (`feature/ml-lightgbm`)
 
 ### Built

@@ -18,6 +18,7 @@ observe that column, so no model or baseline may read it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 
@@ -56,6 +57,30 @@ def validate_demand_frame(frame: pd.DataFrame) -> None:
         raise DemandFrameError(
             f"products missing days (rows must be zero-filled): {', '.join(short.index[:5])}"
         )
+
+
+def load_demand_csv(path: str | Path) -> pd.DataFrame:
+    """Read a daily demand CSV (for example from services/api `scripts.export_demand`) and check
+    it against the contract. Extra columns are kept; `date` is parsed as a calendar day."""
+    raw = pd.read_csv(path, dtype={"sku": str}, keep_default_na=False)
+    missing = [c for c in REQUIRED_COLUMNS if c not in raw.columns]
+    if missing:
+        raise DemandFrameError(f"missing columns: {', '.join(missing)}")
+    frame = raw.copy()
+    try:
+        frame["date"] = pd.to_datetime(frame["date"], format="%Y-%m-%d")
+    except ValueError as error:
+        raise DemandFrameError("`date` must be YYYY-MM-DD") from error
+    stockout = frame["stockout"].astype(str).str.lower()
+    if not stockout.isin(["true", "false"]).all():
+        raise DemandFrameError("`stockout` must be True/False")
+    frame["stockout"] = stockout == "true"
+    units = pd.to_numeric(frame["units_sold"], errors="coerce")
+    if units.isna().any() or (units != units.round()).any():
+        raise DemandFrameError("`units_sold` must be whole units")
+    frame["units_sold"] = units.astype("int64")
+    validate_demand_frame(frame)
+    return frame.sort_values(["date", "sku"], ignore_index=True)
 
 
 def to_wide(frame: pd.DataFrame, column: str) -> pd.DataFrame:

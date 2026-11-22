@@ -384,9 +384,26 @@ Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS
   settings on validation only. The chosen settings are written into `gbm.DEFAULT_PARAMS` and
   run on test once.
 
+- **Real data comes through the API service** (`app/services/demand_history.py`), which owns
+  the schema, the store's time zone and organization isolation. `scripts.export_demand` writes
+  the table as CSV, and `tindawise_ml.data.load_demand_csv` reads and validates it. The ML
+  package has no database code, and its CI job needs no database.
+  - `units_sold`: Σ `sale_lines.quantity` for sales on that store day. Refunds aren't
+    subtracted: a return doesn't mean customers wanted less that day.
+  - `stockout`: some movement that day ended at `balance_after = 0`, or nothing moved and the
+    balance carried in was zero. A shelf restocked during the day after an empty night isn't
+    flagged. Days before a product existed are flagged, so they're skipped too.
+  - Active products only. Three grouped queries (units, per-day ledger summary with the last
+    `balance_after`, opening balances via `DISTINCT ON`), then a zero-fill in Python.
+- **Sample history store** (`scripts.seed_sample_history`, opt-in, refused in production): writes
+  a synthetic history into a *separate* store (`…0002`, `sample-owner@example.com`) as deliveries,
+  receipts and ledger rows. It isn't put in the demo store, because that store's ledgers already
+  start with their opening stock and Playwright runs against it locally. Checked end to end:
+  generate → seed → export gives back the identical table (12,410 rows, 0 differences), and
+  the backtest scores match.
+
 | Planned next | Notes |
 |---|---|
-| Database loader | Same table from `sale_lines` (units sold on the sale's store day) and `stock_movements` |
 | Stockout risk and reorder quantities | Forecast vs stock on hand and lead time, replacing the fixed reorder rule |
 | Anomaly detection | Unusual sales and stock movements |
 

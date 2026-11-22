@@ -176,11 +176,15 @@ def _simulate_product(
     arrivals: dict[int, int] = {}  # day index -> units arriving that morning
     sold = np.zeros(len(days), dtype=np.int64)
     stockout = np.zeros(len(days), dtype=bool)
+    received = np.zeros(len(days), dtype=np.int64)
+    closing = np.zeros(len(days), dtype=np.int64)
 
     for i in range(len(days)):
-        stock += arrivals.pop(i, 0)
+        received[i] = arrivals.pop(i, 0)
+        stock += received[i]
         sold[i] = min(int(demand[i]), stock)
         stock -= sold[i]
+        closing[i] = stock
         # Same rule real data can use: the product reached zero on the shelf that day.
         stockout[i] = stock == 0
         low = stock <= profile.reorder_level and not arrivals  # nothing already on order
@@ -195,6 +199,10 @@ def _simulate_product(
             "units_sold": sold,
             "stockout": stockout,
             "demand": demand.astype(np.int64),
+            # Stock side of the simulation, so the history can be written into a database as
+            # deliveries and sales (services/api scripts/seed_sample_history.py).
+            "received": received,
+            "closing_stock": closing,
         }
     )
 
@@ -207,7 +215,8 @@ def generate_history(
     profiles: tuple[ProductProfile, ...] = DEMO_PROFILES,
     policy: StockPolicy | None = None,
 ) -> pd.DataFrame:
-    """A zero-filled daily table (see tindawise_ml.data) plus the true `demand` column.
+    """A zero-filled daily table (see tindawise_ml.data) plus synthetic-only columns: the true
+    `demand`, units `received` that morning, and `closing_stock` after the day's sales.
 
     The same arguments always give the same table.
     """

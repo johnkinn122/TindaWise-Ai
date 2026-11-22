@@ -30,8 +30,14 @@ No database needed.
 # A few minutes. Copy the winner into gbm.DEFAULT_PARAMS, then run `backtest` once.
 .venv/Scripts/python -m tindawise_ml tune
 
-# Write the synthetic history to a CSV, e.g. to explore it in a notebook
+# Write the synthetic history to a CSV, e.g. to explore it in a notebook. --end makes it end on
+# a given day (used to seed the API's sample store so its history ends yesterday).
 .venv/Scripts/python -m tindawise_ml generate --out history.csv
+.venv/Scripts/python -m tindawise_ml generate --end 2026-11-21 --out history.csv
+
+# Run on a table exported from the database (services/api scripts.export_demand) instead.
+# No oracle row: that needs the generator's formula.
+.venv/Scripts/python -m tindawise_ml backtest --csv demand.csv
 ```
 
 From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run test:ml`, `npm run lint:ml`.
@@ -40,8 +46,8 @@ From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run test:ml`,
 
 | Module | What it does |
 |---|---|
-| `data.py` | The daily demand table contract (one zero-filled row per product per day), its validator, and `History` (what a forecaster sees) |
-| `synthetic.py` | Seeded sample history for the 17 demo SKUs, with stockouts that cap sales; the oracle floor |
+| `data.py` | The daily demand table contract (one zero-filled row per product per day), its validator, the CSV loader, and `History` (what a forecaster sees) |
+| `synthetic.py` | Seeded sample history for the 17 demo SKUs, with deliveries, closing stock and stockouts that cap sales; the oracle floor |
 | `baselines.py` | Naive, seasonal naive (7 days), moving average (28 days) |
 | `features.py` | Feature rows for the direct multi-horizon model (only days up to the origin) |
 | `gbm.py` | The LightGBM forecaster and its tuned settings |
