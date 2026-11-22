@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Store, Users } from "lucide-react";
+import { History, LogOut, Store, Users } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "@/app/(auth)/actions";
 import {
@@ -62,6 +62,14 @@ export function UserMenu({ fullName, email, roleLabel, canManageTeam, canViewSto
             <Link href="/settings/team">
               <Users aria-hidden="true" />
               Team
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {canManageTeam && (
+          <DropdownMenuItem asChild>
+            <Link href="/settings/activity">
+              <History aria-hidden="true" />
+              Activity log
             </Link>
           </DropdownMenuItem>
         )}

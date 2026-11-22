@@ -21,8 +21,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, InvalidInputError, NotFoundError
-from app.models import MovementReason, Organization, Product, Refund, RefundLine, Sale
+from app.models import (
+    AuditAction,
+    MovementReason,
+    Organization,
+    Product,
+    Refund,
+    RefundLine,
+    Sale,
+)
 from app.schemas.sale import RefundCreate
+from app.services.audit import money, record
 from app.services.inventory import record_movement
 
 CENT = Decimal("0.01")
@@ -161,6 +170,29 @@ def create_refund(
             )
             movement.refund_id = refund.id
     sale.refunded_total = (sale.refunded_total + refund.total).quantize(CENT)
+    units = sum(line.quantity for line in ordered)
+    record(
+        db,
+        org_id=org_id,
+        actor_id=user_id,
+        action=AuditAction.REFUND_CREATED,
+        entity_type="refund",
+        entity_id=refund.id,
+        summary=(
+            f"Refunded {money(refund.total, refund.currency)} on {sale.receipt_code} "
+            f"({refund.refund_code}): {units} {'unit' if units == 1 else 'units'}, "
+            f"{data.reason.replace('_', ' ')}"
+        ),
+        details={
+            "refund_code": refund.refund_code,
+            "receipt_code": sale.receipt_code,
+            "sale_id": str(sale.id),
+            "total": str(refund.total),
+            "units": units,
+            "restocked_units": sum(line.quantity for line in ordered if line.restock),
+            "reason": str(data.reason),
+        },
+    )
 
     try:
         db.commit()

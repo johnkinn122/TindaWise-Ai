@@ -1,15 +1,17 @@
 """Product and category rules. Every query is scoped to one organization."""
 
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, InvalidInputError, NotFoundError
-from app.models import Category, MovementReason, Organization, Product
+from app.models import AuditAction, Category, MovementReason, Organization, Product
 from app.schemas.category import CategoryCreate
 from app.schemas.product import ProductCreate, ProductSort, ProductUpdate, StockStatus
+from app.services.audit import money, record
 from app.services.inventory import record_movement
 
 _SORTS = {
@@ -180,7 +182,12 @@ def create_product(
 
 
 def update_product(
-    db: Session, org_id: uuid.UUID, product_id: uuid.UUID, data: ProductUpdate
+    db: Session,
+    org_id: uuid.UUID,
+    product_id: uuid.UUID,
+    data: ProductUpdate,
+    *,
+    actor_id: uuid.UUID,
 ) -> Product:
     product = get_product(db, org_id, product_id)
     changes = data.model_dump(exclude_unset=True)
@@ -193,8 +200,29 @@ def update_product(
     if changes.get("category_id"):
         _require_category(db, org_id, changes["category_id"])
 
+    money_changes = {
+        field: [str(getattr(product, field)), str(changes[field])]
+        for field in ("price", "cost")
+        if field in changes and getattr(product, field) != changes[field]
+    }
     for field, value in changes.items():
         setattr(product, field, value)
+    if money_changes:
+        parts = [
+            f"{field} {money(Decimal(old), product.currency)} → "
+            f"{money(Decimal(new), product.currency)}"
+            for field, (old, new) in money_changes.items()
+        ]
+        record(
+            db,
+            org_id=org_id,
+            actor_id=actor_id,
+            action=AuditAction.PRODUCT_PRICE_CHANGED,
+            entity_type="product",
+            entity_id=product.id,
+            summary=f"Changed {product.name}: " + "; ".join(parts),
+            details={"sku": product.sku, "changes": money_changes},
+        )
     try:
         db.commit()
     except IntegrityError as exc:
@@ -204,8 +232,21 @@ def update_product(
     return product
 
 
-def archive_product(db: Session, org_id: uuid.UUID, product_id: uuid.UUID) -> None:
+def archive_product(
+    db: Session, org_id: uuid.UUID, product_id: uuid.UUID, *, actor_id: uuid.UUID
+) -> None:
     """Products are archived, never deleted, so sales and stock history stay intact."""
     product = get_product(db, org_id, product_id)
+    if product.is_active:  # archiving twice is harmless and logged once
+        record(
+            db,
+            org_id=org_id,
+            actor_id=actor_id,
+            action=AuditAction.PRODUCT_ARCHIVED,
+            entity_type="product",
+            entity_id=product.id,
+            summary=f"Archived {product.name} ({product.sku})",
+            details={"sku": product.sku, "stock_on_hand": product.stock_on_hand},
+        )
     product.is_active = False
     db.commit()

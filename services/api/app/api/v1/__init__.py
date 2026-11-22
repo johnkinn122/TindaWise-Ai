@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    audit,
     auth,
     categories,
     inventory,
@@ -26,3 +27,4 @@ api_router.include_router(purchase_orders.router)
 api_router.include_router(reports.router)
 api_router.include_router(inventory.router)
 api_router.include_router(store.router)
+api_router.include_router(audit.router)

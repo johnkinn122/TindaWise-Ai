@@ -60,5 +60,7 @@ CanManageInventory = Annotated[AuthContext, Depends(require_roles(Role.OWNER, Ro
 CanManageTeam = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
 # Store settings change how every day, report and reorder suggestion is computed: owner only.
 CanEditStore = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
+# The audit log records what managers do too, so the owner is the one who reviews it.
+CanReviewAudit = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
 # Approving a purchase order commits the store's money, so only the owner may do it.
 CanApprovePurchases = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]

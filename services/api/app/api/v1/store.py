@@ -17,4 +17,4 @@ def read_store(auth: CanManageInventory):
 def update_store(data: StoreUpdate, auth: CanEditStore, db: DbSession):
     """Owner only. The store is always the signed-in person's own: it comes from the session."""
     org = db.merge(auth.organization)
-    return service.update_store(db, org, data)
+    return service.update_store(db, org, data, actor_id=auth.user.id)

@@ -50,7 +50,7 @@ src/
 │       ├── purchase-orders/    Live: list (status tabs), /new, /[id] (actions, deliveries, history), /[id]/edit
 │       ├── reports/            Live: period presets + custom range, KPIs, charts, tables; export/route.ts (CSV)
 │       ├── sales/              Live: receipt list + search, /[id] (receipt, refunds, refund form), actions.ts
-│       ├── settings/           Live: team/ (owner), store/ (owner edits; managers view), actions.ts
+│       ├── settings/           Live: team/ (owner), store/ (owner edits; managers view), activity/ (owner)
 │       └── inventory/          Live: stock KPIs + store-wide ledger with filters (owners and managers)
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
@@ -324,6 +324,31 @@ and see stock levels on the product list instead.
   would need rules the app doesn't have.
 - PATCH is partial; `null` means "not sent", because every setting is required.
 
+### Audit log (`audit_events`, `GET /api/v1/audit-events`)
+
+| Action | Recorded when |
+|---|---|
+| `store.updated` | A store setting actually changes (old and new values in `details`) |
+| `member.added` | The owner adds a manager or cashier |
+| `refund.created` | A refund is given (receipt, refund number, amount, units, reason) |
+| `purchase_order.approved` / `.cancelled` / `.closed` | The order changes to that status |
+| `product.price_changed` | A product's price or cost changes (old → new) |
+| `product.archived` | An active product is archived |
+
+- **Append-only in the database.** A `BEFORE UPDATE OR DELETE` trigger raises an error for every
+  row, whoever runs the statement, including raw SQL. Foreign keys to organizations and users
+  are `RESTRICT`, so deleting either can't erase or rewrite the trail. (Both are archived,
+  never deleted.)
+- **Same transaction as the change.** `services/audit.record` only adds the row; the service
+  commits it together with the change. A refused or rolled-back action leaves no entry, and
+  an idempotent replay returns before `record`, so a retry is logged once.
+- **Not logged here:** sales and stock changes. Receipts and the `stock_movements` ledger
+  already record every one, with who made it.
+- **Owner only** (`CanReviewAudit`): the log records what managers do, so the owner reviews it.
+  Filters: action, person, store days. Newest first, paginated.
+- `actor_user_id` is null only for actions without a signed-in person (reserved for scheduled
+  jobs and the planned AI agent, which will record its proposals and the approvals).
+
 ### Authentication and roles
 
 - **API-owned sessions.** `POST /auth/login` returns a random 256-bit token once; the database stores
@@ -343,8 +368,10 @@ and see stock levels on the product list instead.
   | Manage the team | ✅ | — | — |
   | See store settings | ✅ | ✅ | — |
   | Change store settings (name, time zone, default delivery time) | ✅ | — | — |
+  | Read the activity log | ✅ | — | — |
 
-- **Audit:** every stock movement records `created_by_user_id`.
+- **Audit:** every stock movement records `created_by_user_id`, and sensitive actions go to the
+  append-only activity log (see "Audit log").
 - **Team:** owners add managers/cashiers with a temporary password. An email that already has an
   account is refused rather than attached, so nobody can pull another person's account into a store.
 

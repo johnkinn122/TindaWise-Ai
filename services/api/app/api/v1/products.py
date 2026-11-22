@@ -76,13 +76,13 @@ def get_product(product_id: uuid.UUID, db: DbSession, auth: Auth):
 def update_product(
     product_id: uuid.UUID, data: ProductUpdate, db: DbSession, auth: CanManageInventory
 ):
-    return service.update_product(db, auth.organization.id, product_id, data)
+    return service.update_product(db, auth.organization.id, product_id, data, actor_id=auth.user.id)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_product(product_id: uuid.UUID, db: DbSession, auth: CanManageInventory) -> Response:
     """Archives the product (soft delete). History is kept."""
-    service.archive_product(db, auth.organization.id, product_id)
+    service.archive_product(db, auth.organization.id, product_id, actor_id=auth.user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
