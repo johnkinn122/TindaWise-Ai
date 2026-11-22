@@ -30,6 +30,7 @@ test("a cashier has no Team menu and can't open the team page", async ({ page })
   await page.getByRole("button", { name: /: Account, .*Cashier$/ }).click();
   await expect(page.getByRole("menuitem", { name: "Team" })).toHaveCount(0);
   await expect(page.getByRole("menuitem", { name: "Store settings" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Activity log" })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   await page.goto("/settings/team");
@@ -37,6 +38,8 @@ test("a cashier has no Team menu and can't open the team page", async ({ page })
   await page.goto("/settings/store");
   await expect(page.getByText("Only the store owner and managers can see store settings.")).toBeVisible();
   await expect(page.getByRole("textbox", { name: /Store name/ })).toHaveCount(0);
+  await page.goto("/settings/activity");
+  await expect(page.getByText("Only the store owner can see the activity log.")).toBeVisible();
 });
 
 test("a cashier's overview shows their own sales and no costs", async ({ page }) => {

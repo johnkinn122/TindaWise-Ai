@@ -17,8 +17,9 @@ from app.core.security import (
     password_needs_rehash,
     verify_password,
 )
-from app.models import AuthSession, Membership, Organization, Role, User
+from app.models import AuditAction, AuthSession, Membership, Organization, Role, User
 from app.schemas.auth import LoginRequest, MemberCreate, SignupRequest
+from app.services.audit import record
 
 # Updating last_seen_at on every request would be a write per read; once in a while is enough.
 _LAST_SEEN_RESOLUTION = timedelta(minutes=5)
@@ -142,7 +143,7 @@ def list_members(db: Session, organization_id: uuid.UUID) -> list[tuple[Membersh
 
 
 def add_member(
-    db: Session, organization_id: uuid.UUID, data: MemberCreate
+    db: Session, organization_id: uuid.UUID, data: MemberCreate, *, actor_id: uuid.UUID
 ) -> tuple[Membership, User]:
     """Create a new account directly in this store.
 
@@ -165,5 +166,15 @@ def add_member(
         ) from exc
     membership = Membership(user_id=user.id, organization_id=organization_id, role=data.role)
     db.add(membership)
+    record(
+        db,
+        org_id=organization_id,
+        actor_id=actor_id,
+        action=AuditAction.MEMBER_ADDED,
+        entity_type="user",
+        entity_id=user.id,
+        summary=f"Added {user.full_name} ({user.email}) as {data.role}",
+        details={"email": user.email, "role": str(data.role)},
+    )
     db.commit()
     return membership, user

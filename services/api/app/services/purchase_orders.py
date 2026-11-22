@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, ForbiddenError, InvalidInputError, NotFoundError
 from app.models import (
+    AuditAction,
     MovementReason,
     Organization,
     Product,
@@ -45,6 +46,7 @@ from app.schemas.purchase_order import (
     ReceiptLineRead,
     ReceiveInput,
 )
+from app.services.audit import money, record
 from app.services.inventory import record_movement
 from app.services.reorder import reorder_candidates
 
@@ -259,6 +261,22 @@ def update_draft(
 # ── Status changes ──────────────────────────────────────────────────────────
 
 
+def _audit(
+    db: Session, po: PurchaseOrder, user_id: uuid.UUID, action: AuditAction, summary: str,
+    details: dict,
+) -> None:  # fmt: skip
+    record(
+        db,
+        org_id=po.organization_id,
+        actor_id=user_id,
+        action=action,
+        entity_type="purchase_order",
+        entity_id=po.id,
+        summary=summary,
+        details={"code": po.code, **details},
+    )
+
+
 def approve(db: Session, org_id: uuid.UUID, po_id: uuid.UUID, user_id: uuid.UUID) -> PurchaseOrder:
     """Owner only (checked by the endpoint). Locks the lines: nothing changes after approval."""
     po = get_purchase_order(db, org_id, po_id, lock=True)
@@ -267,10 +285,16 @@ def approve(db: Session, org_id: uuid.UUID, po_id: uuid.UUID, user_id: uuid.UUID
         raise InvalidInputError(
             "Choose a supplier before approving.", fields={"supplier_id": "Choose a supplier"}
         )
-    _active_supplier(db, org_id, po.supplier_id)
+    supplier = _active_supplier(db, org_id, po.supplier_id)
     po.status = Status.APPROVED.value
     po.approved_by_user_id = user_id
     po.approved_at = _now()
+    total = sum((line.line_total for line in po.lines), Decimal("0"))
+    _audit(
+        db, po, user_id, AuditAction.PURCHASE_ORDER_APPROVED,
+        f"Approved {po.code} for {money(total, po.currency)} from {supplier.name}",
+        {"total": str(total), "supplier": supplier.name},
+    )  # fmt: skip
     db.commit()
     db.refresh(po)
     return po
@@ -283,6 +307,11 @@ def cancel(db: Session, org_id: uuid.UUID, po_id: uuid.UUID, user_id: uuid.UUID,
     _require_status(po, {Status.DRAFT.value, Status.APPROVED.value}, "cancelled")
     if po.status == Status.APPROVED.value and role != Role.OWNER:
         raise ForbiddenError("Only the owner can cancel an approved purchase order.")
+    _audit(
+        db, po, user_id, AuditAction.PURCHASE_ORDER_CANCELLED,
+        f"Cancelled {po.code} ({'approved' if po.status == Status.APPROVED.value else 'draft'})",
+        {"status_before": po.status},
+    )  # fmt: skip
     po.status = Status.CANCELLED.value
     po.finished_by_user_id = user_id
     po.finished_at = _now()
@@ -297,6 +326,13 @@ def close_short(
     """The rest of a partly delivered order will not come. What arrived stays in stock."""
     po = get_purchase_order(db, org_id, po_id, lock=True)
     _require_status(po, {Status.PARTIALLY_RECEIVED.value}, "closed")
+    ordered = sum(line.quantity_ordered for line in po.lines)
+    received = sum(line.quantity_received for line in po.lines)
+    _audit(
+        db, po, user_id, AuditAction.PURCHASE_ORDER_CLOSED,
+        f"Closed {po.code} short: {received} of {ordered} units received",
+        {"units_ordered": ordered, "units_received": received},
+    )  # fmt: skip
     po.status = Status.CLOSED.value
     po.finished_by_user_id = user_id
     po.finished_at = _now()

@@ -51,7 +51,7 @@ def _like(text: str) -> str:
     return "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-def _bounds(org: Organization, start: date | None, end: date | None):
+def store_day_range(org: Organization, start: date | None, end: date | None):
     """Store days as [local midnight of start, local midnight after end)."""
     if start and end and end < start:
         raise InvalidInputError(
@@ -76,7 +76,7 @@ def _conditions(org: Organization, filters: LedgerFilters) -> list:
         conditions.append(
             or_(Product.name.ilike(term, escape="\\"), Product.sku.ilike(term, escape="\\"))
         )
-    since, until = _bounds(org, filters.start, filters.end)
+    since, until = store_day_range(org, filters.start, filters.end)
     if since:
         conditions.append(StockMovement.created_at >= since)
     if until:

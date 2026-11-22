@@ -4,6 +4,56 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Audit log (`feature/audit-log`)
+
+### Why
+CLAUDE.md §13: keep audit logs for sensitive business operations. The AI agent phase will also
+need somewhere trustworthy to record its proposals and the approvals.
+
+### Built
+- Migration `3f31c2367a78`: the `audit_events` table (actor, action, record, summary, JSON
+  details) with an index on (organization, time). A trigger rejects every UPDATE and DELETE.
+- `services/audit.py`: `record()` adds an event to the caller's transaction; `list_events()`
+  reads them with filters.
+- Eight actions are recorded, each just before the service's own commit: store settings changed,
+  team member added, refund given, purchase order approved, cancelled or closed short, price or
+  cost changed, active product archived.
+- `GET /api/v1/audit-events` (owner only, new `CanReviewAudit`): filters for action, person and
+  store days, newest first, paginated.
+- Products, store settings and adding a member now pass the acting user (`actor_id`) to the
+  service. The ledger's store-day helper is public as `store_day_range` and shared.
+- Web `/settings/activity` ("Activity log" in the owner's account menu): a type filter (GET form),
+  a table of when / what / who, and a link to the record (receipt, order, product, team,
+  settings). On phones, the person goes under the summary. Cashiers and managers see a notice.
+
+### Verified
+- API pytest 231/231 (17 new):
+  - Each action is recorded once, with the right actor, record, summary and details.
+  - A refund retried with the same key is logged once.
+  - Refused actions (over-refund, approving without a supplier) and no-op changes (same
+    settings, same price, archiving twice) record nothing. Sales, stock adjustments and new
+    suppliers aren't logged.
+  - The database refuses UPDATE and DELETE, including raw SQL.
+  - Newest first, filters, pages, store-day range, end before start 422, owner only (manager and
+    cashier 403, signed-out 401), store isolation, and a manager's change attributed to the
+    manager.
+- Migration upgrade → downgrade → upgrade; `alembic check` clean.
+- Vitest 126/126 (5 new: URL parsing, API query, links to records, labels for every action).
+- Playwright 93/93 (3 new: the owner changes a setting and finds it in the log, filtered by
+  type, with a link to the record; cashier notice and no menu entry; axe on `/settings/activity`
+  in both themes). After a layout tweak, the affected specs passed again (45/45).
+- Manual: 390px dark and 1440px light with real entries, no overflow, no console errors. On
+  phones the date column was taking half the width, so it now wraps.
+
+### Known issues / open items
+- **Times show in Manila time everywhere** (`lib/format.ts` uses a fixed zone), even after a store
+  changes its time zone in Store settings. The figures use the store's zone; only the displayed
+  times don't. This came with store settings and should be fixed across the app.
+- Not logged yet: sign-in failures, supplier changes, product edits other than price and cost.
+- The log has no export, and there is no retention rule yet (CLAUDE.md §13 mentions retention).
+
+---
+
 ## 2026-11-23 — Store settings (`feature/store-settings`)
 
 ### Decisions

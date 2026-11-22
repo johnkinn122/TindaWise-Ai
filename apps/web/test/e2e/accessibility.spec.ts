@@ -26,6 +26,7 @@ const pages = [
   "/reports",
   "/settings/team",
   "/settings/store",
+  "/settings/activity",
 ];
 
 for (const theme of ["light", "dark"] as const) {

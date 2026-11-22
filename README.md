@@ -12,6 +12,9 @@ and (planned) sales, suppliers, demand forecasting and an AI business copilot.
 - **Accounts:** sign up (creates your store), sign in, sign out; owners add managers and cashiers.
 - **Store settings:** the owner sets the store name, time zone and default delivery time (used by
   reorder suggestions); managers can view them.
+- **Activity log:** refunds, purchase order approvals, price changes, archived products, new team
+  members and settings changes, with who and when. Append-only (the database refuses edits);
+  owner only.
 - **Roles:** owners and managers run products, stock and purchasing; only the owner approves purchase
   orders; everyone can sell, and cashiers never see costs. Enforced by the API.
 - **Point of Sale:** scan or search, cart, cash with change or e-wallet reference, printable receipt.

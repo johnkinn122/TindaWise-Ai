@@ -26,5 +26,5 @@ def list_members(auth: CanManageTeam, db: DbSession):
 @router.post("", response_model=MemberRead, status_code=status.HTTP_201_CREATED)
 def add_member(data: MemberCreate, auth: CanManageTeam, db: DbSession):
     """Owner adds a manager or cashier with a temporary password to share with them."""
-    membership, user = service.add_member(db, auth.organization.id, data)
+    membership, user = service.add_member(db, auth.organization.id, data, actor_id=auth.user.id)
     return _read(membership, user)

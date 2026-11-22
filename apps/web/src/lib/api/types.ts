@@ -205,6 +205,29 @@ export interface Overview {
   };
 }
 
+export type AuditAction =
+  | "store.updated"
+  | "member.added"
+  | "refund.created"
+  | "purchase_order.approved"
+  | "purchase_order.cancelled"
+  | "purchase_order.closed"
+  | "product.price_changed"
+  | "product.archived";
+
+/** One entry of the append-only activity log (GET /audit-events, owner only). */
+export interface AuditEvent {
+  id: string;
+  action: AuditAction;
+  entity_type: string;
+  entity_id: string | null;
+  summary: string;
+  details: Record<string, unknown>;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  created_at: string;
+}
+
 /** Store settings (GET/PATCH /store). Currency is shown but can't be changed. */
 export interface Store {
   id: string;
