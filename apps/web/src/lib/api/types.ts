@@ -165,9 +165,18 @@ export interface ReorderLine {
   name: string;
   unit: string;
   stock_on_hand: number;
+  /** Units on open purchase orders (draft, approved, partly received). */
+  on_order: number;
   reorder_level: number;
-  sold_recently: number;
   suggested_quantity: number;
+  /** "recent_sales": from daily_rate; "reorder_level": too little history for a rate. */
+  basis: "recent_sales" | "reorder_level";
+  /** Units a day on in-stock days, one decimal. Null when the reorder level was used. */
+  daily_rate: string | null;
+  in_stock_days: number;
+  lead_time_days: number;
+  lead_time_source: "supplier" | "store_default";
+  supplier_name: string | null;
   unit_cost: string | null;
 }
 
@@ -188,7 +197,10 @@ export interface Overview {
   reorder: {
     lines: ReorderLine[];
     total_count: number;
-    lookback_days: number;
+    /** Days of sales history the daily rates come from. */
+    window_days: number;
+    /** Days of sales each order covers beyond the delivery time. */
+    cover_days: number;
     estimated_cost: string | null;
   };
 }
@@ -200,6 +212,8 @@ export interface Supplier {
   phone: string | null;
   email: string | null;
   notes: string | null;
+  /** Days from ordering to delivery; null means the store default is used. */
+  lead_time_days: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -18,7 +18,8 @@ and (planned) sales, suppliers, demand forecasting and an AI business copilot.
   some or all items, with a reason, choosing per item whether it goes back on the shelf. Sales,
   profit and reports are net of refunds. Cashiers see their own receipts.
 - **Overview:** today's sales, transactions and gross margin against the same day last week, this
-  week's sales by day, stock to watch, and rule-based reorder quantities. Days follow the store's
+  week's sales by day, stock to watch, and reorder suggestions from recent sales and each
+  supplier's delivery time, each with its reason. Days follow the store's
   time zone. Cashiers see their own sales and no costs.
 - **Suppliers and purchase orders:** draft an order (or one click from the Overview's reorder
   suggestions), the owner approves it, then record deliveries as they arrive, including partial
@@ -115,7 +116,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ inventory page (store-wide ledger)
 2. **Machine learning** (in progress): ✅ forecasting baselines and backtest on synthetic data ·
    ✅ LightGBM forecaster (synthetic data) · ✅ demand export from the database ·
-   ✅ reorder policy simulation (synthetic data) · 📋 forecast-based reorder suggestions in the app ·
+   ✅ reorder policy simulation (synthetic data) · ✅ demand-based reorder suggestions in the app ·
    📋 anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)

@@ -1,9 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ReorderCard } from "@/components/dashboard/reorder-card";
-import type { Overview } from "@/lib/api/types";
+import type { Overview, ReorderLine } from "@/lib/api/types";
 import { niceTicks } from "@/lib/chart";
-import { buildKpis, buildWeeklySales, compareCounts, storeWeekday, weeklySummary } from "@/lib/overview";
+import {
+  buildKpis,
+  buildWeeklySales,
+  compareCounts,
+  reorderReason,
+  storeWeekday,
+  weeklySummary,
+} from "@/lib/overview";
 
 const week = ["15", "16", "17", "18", "19", "20", "21"].map((d, i) => ({
   date: `2026-11-${d}`,
@@ -25,7 +32,7 @@ function overview(overrides: Partial<Overview> = {}): Overview {
     low_stock_count: 4,
     out_of_stock_count: 2,
     stock_to_watch: [],
-    reorder: { lines: [], total_count: 0, lookback_days: 14, estimated_cost: null },
+    reorder: { lines: [], total_count: 0, window_days: 28, cover_days: 10, estimated_cost: null },
     ...overrides,
   };
 }
@@ -130,23 +137,34 @@ describe("ReorderCard", () => {
         name: "Coca-Cola 1.5L",
         unit: "btl",
         stock_on_hand: 0,
+        on_order: 0,
         reorder_level: 12,
-        sold_recently: 30,
         suggested_quantity: 30,
+        basis: "recent_sales",
+        daily_rate: "2.5",
+        in_stock_days: 21,
+        lead_time_days: 2,
+        lead_time_source: "supplier",
+        supplier_name: "Coca-Cola Depot",
         unit_cost: "68.00",
       },
     ],
     total_count: 3,
-    lookback_days: 14,
+    window_days: 28,
+    cover_days: 10,
     estimated_cost: "2040.00",
   };
 
-  it("lists quantities and cost, and says it's a rule, not a forecast", () => {
+  it("lists quantities, cost and the reason for each line", () => {
     render(<ReorderCard reorder={reorder} canOrder />);
     expect(screen.getByRole("heading", { name: "Reorder suggestions" })).toBeInTheDocument();
     expect(screen.getByText("30 btl")).toBeInTheDocument();
     expect(screen.getByText("₱2,040.00")).toBeInTheDocument();
-    expect(screen.getByText(/A simple rule, not a forecast/)).toBeInTheDocument();
+    expect(
+      screen.getByText("0 on hand · about 2.5 sold a day · 2-day delivery from Coca-Cola Depot"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/covers the delivery time plus 10 days/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Set delivery times on suppliers" })).toHaveAttribute("href", "/suppliers");
     expect(screen.getByRole("link", { name: "See products by stock" })).toHaveAttribute("href", "/products?sort=stock");
     expect(screen.getByRole("button", { name: "Create purchase order" })).toBeEnabled();
   });
@@ -155,10 +173,51 @@ describe("ReorderCard", () => {
     render(<ReorderCard reorder={{ ...reorder, estimated_cost: null }} canOrder={false} />);
     expect(screen.queryByText("Estimated cost")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create purchase order" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Set delivery times on suppliers" })).not.toBeInTheDocument();
   });
 
   it("says plainly when nothing needs reordering", () => {
     render(<ReorderCard reorder={{ ...reorder, lines: [], total_count: 0, estimated_cost: "0.00" }} canOrder />);
     expect(screen.getByText(/Nothing to reorder/)).toBeInTheDocument();
+  });
+});
+
+describe("reorderReason", () => {
+  const base: ReorderLine = {
+    product_id: "a",
+    name: "Item",
+    unit: "pcs",
+    stock_on_hand: 3,
+    on_order: 0,
+    reorder_level: 5,
+    suggested_quantity: 7,
+    basis: "recent_sales",
+    daily_rate: "1.0",
+    in_stock_days: 28,
+    lead_time_days: 3,
+    lead_time_source: "store_default",
+    supplier_name: null,
+    unit_cost: null,
+  };
+
+  it("explains a suggestion from recent sales with the store's default delivery time", () => {
+    expect(reorderReason(base)).toBe("3 on hand · about 1 sold a day · 3-day delivery (store default)");
+  });
+
+  it("names the supplier and units already on order", () => {
+    expect(
+      reorderReason({ ...base, on_order: 1200, lead_time_days: 1, lead_time_source: "supplier", supplier_name: "Puregold" }),
+    ).toBe("3 on hand · 1,200 on order · about 1 sold a day · 1-day delivery from Puregold");
+  });
+
+  it("says when the reorder level was used instead of sales", () => {
+    expect(reorderReason({ ...base, basis: "reorder_level", daily_rate: null })).toBe(
+      "3 on hand · little sales history yet, so up to twice the reorder level",
+    );
+  });
+
+  it("pluralises the delivery time", () => {
+    expect(reorderReason({ ...base, lead_time_days: 0 })).toContain("0-day delivery");
+    expect(reorderReason({ ...base, lead_time_days: 14 })).toContain("14-day delivery");
   });
 });

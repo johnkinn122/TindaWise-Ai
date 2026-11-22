@@ -4,6 +4,63 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Reorder suggestions from recent sales and delivery time (`feature/forecast-reorder`)
+
+### Decisions (owner)
+- Lead times are set per supplier, with a store-wide default.
+- The new rule replaces the Overview's suggestions, and each line explains why it's there.
+
+### Decisions (mine)
+- Daily rate = average over **in-stock days** only, so an empty shelf doesn't read as "no
+  demand". I simulated it before building on it: it beat the plain average on all six datasets
+  (EXPERIMENTS.md).
+- Open purchase orders count as stock (position = on hand + undelivered). A draft made from
+  the suggestions therefore stops them being suggested twice. The old rule ignored open orders.
+- Fewer than 7 in-stock days → reorder-level fallback (new products, and the freshly seeded
+  demo store). This is a judgment call, not simulated.
+- Kept the plain panel, not the Resibo card: an average with a buffer isn't AI output (MASTER.md §7).
+
+### Built
+- Migration `709bf783c702`: `suppliers.lead_time_days` (nullable, 0-60) and
+  `organizations.default_lead_time_days` (default 3, 0-60), each with a CHECK.
+- API `app/services/reorder.py`: the rule (formulas in ARCHITECTURE "Reorder suggestions"),
+  using the demand table from `demand_history.py`. The Overview and "create purchase order from
+  suggestions" both call it. The old rule (`suggested_quantity`, 14-day recent sales) is removed.
+- Overview `reorder` response: lines carry `on_order`, `basis`, `daily_rate`, `in_stock_days`,
+  `lead_time_days`, `lead_time_source`, `supplier_name`, and the response gives `window_days`
+  and `cover_days` (`sold_recently` and `lookback_days` are gone).
+- Suppliers: `lead_time_days` in the API, a "Delivery time (days)" field on the form, and a
+  "Delivery" column on the list (wide screens).
+- Web reorder card: one line per product saying why ("3 on hand · 5 on order · about 2.5 sold a
+  day · 2-day delivery from Weekly truck"), a footer that explains the rule, and a link to set
+  delivery times.
+- ML: `in_stock_moving_average` and its policy row in `python -m tindawise_ml policies`.
+
+### Verified
+- API pytest 204/204 (183 before; 23 new, 2 tests of the old rule removed). The rule's arithmetic: reorder point, cover, buffer, rounding,
+  open orders, fallback, quiet products, same-day delivery. Against real records: rate from
+  in-stock days (13 days at 4 a day, not 28 at 2), supplier lead time and name, latest supplier
+  wins, cancelled orders ignored, only the undelivered part of a partly received order, store
+  default, new products, most urgent first, archived and other stores left out, damage
+  counts as a stockout day, the Overview shape, a draft stopping repeat suggestions. Supplier
+  lead time optional, editable, 0-60 only.
+- Mutation check: 4 deliberate bugs in the rule. "Oldest supplier instead of latest" survived,
+  so I added the switched-supplier test, which catches it.
+- Migration: upgrade → downgrade → upgrade on the dev database, `alembic check` clean, CHECK
+  rejects 61. (Fixed: the downgrade first used names the naming convention prefixed twice.)
+- Web: typecheck, ESLint, Vitest 118/118 (4 new for the reason line). Playwright: see below.
+- ML pytest 102/102.
+
+### Known issues / open items
+- The store default (3 days) can only be changed in the database. There is no store settings
+  page yet.
+- Products have no direct supplier link. The lead time comes from the latest purchase order's
+  supplier.
+- Refunds no longer lower the rate (the old rule subtracted them). This is the same as the
+  demand table.
+
+---
+
 ## 2026-11-23 — ML: reorder policy simulation (`feature/ml-reorder-policy`)
 
 ### Built

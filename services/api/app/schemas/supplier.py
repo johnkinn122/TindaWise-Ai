@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, StringConstraints, field_validator
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 from app.schemas.common import ORMModel
 
@@ -24,6 +24,8 @@ class _SupplierFields(BaseModel):
     phone: Annotated[str, StringConstraints(max_length=40)] | None = None
     email: EmailStr | None = None
     notes: Annotated[str, StringConstraints(max_length=500)] | None = None
+    # Days from ordering to delivery, used by reorder suggestions. None: the store default.
+    lead_time_days: Annotated[int, Field(ge=0, le=60)] | None = None
 
     _blanks = field_validator("contact_name", "phone", "email", "notes", mode="before")(
         _blank_to_none
@@ -48,6 +50,7 @@ class SupplierRead(ORMModel):
     phone: str | None
     email: str | None
     notes: str | None
+    lead_time_days: int | None
     is_active: bool
     created_at: datetime
     updated_at: datetime

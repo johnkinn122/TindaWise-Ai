@@ -1,4 +1,4 @@
-from sqlalchemy import CHAR, Integer, String
+from sqlalchemy import CHAR, CheckConstraint, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -8,6 +8,11 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A business (one store or a group of stores). Every business record belongs to one."""
 
     __tablename__ = "organizations"
+    __table_args__ = (
+        CheckConstraint(
+            "default_lead_time_days BETWEEN 0 AND 60", name="default_lead_time_days_range"
+        ),
+    )
 
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     currency: Mapped[str] = mapped_column(CHAR(3), nullable=False, default="PHP")
@@ -19,6 +24,10 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # numbers are sequential per store with no gaps from concurrent sales.
     last_receipt_number: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
+    )
+    # Delivery time assumed for products whose supplier has no lead time (reorder suggestions).
+    default_lead_time_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=3, server_default="3"
     )
     # Last purchase order number used; same locking rule as receipts.
     last_po_number: Mapped[int] = mapped_column(

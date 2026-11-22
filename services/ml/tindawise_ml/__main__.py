@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from tindawise_ml.backtest import run_backtest, score, score_totals, tiling_origins
-from tindawise_ml.baselines import BASELINES, moving_average
+from tindawise_ml.baselines import BASELINES, in_stock_moving_average, moving_average
 from tindawise_ml.data import load_demand_csv
 from tindawise_ml.gbm import make_lightgbm_forecaster
 from tindawise_ml.inventory import CurrentRule, ForecastPolicy, Policy, simulate
@@ -90,7 +90,10 @@ def _describe(history: pd.DataFrame, source: str | None) -> str:
 def _compare_policies(history: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
     start = history["date"].max() - pd.Timedelta(days=args.test_days - 1)
     levels = {p.sku: p.reorder_level for p in DEMO_PROFILES}
-    forecasters = {"moving_average_28": moving_average}
+    forecasters = {
+        "moving_average_28": moving_average,
+        "in_stock_moving_average_28": in_stock_moving_average,
+    }
     if not args.baselines_only:
         forecasters["lightgbm"] = make_lightgbm_forecaster()
     candidates: list[Policy] = [CurrentRule()]

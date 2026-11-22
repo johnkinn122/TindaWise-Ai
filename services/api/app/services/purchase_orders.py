@@ -46,7 +46,7 @@ from app.schemas.purchase_order import (
     ReceiveInput,
 )
 from app.services.inventory import record_movement
-from app.services.overview import attention_products, reorder_candidates
+from app.services.reorder import reorder_candidates
 
 CENT = Decimal("0.01")
 MAX_LINES = 200
@@ -218,7 +218,9 @@ def create_from_reorder(
     is chosen while reviewing the draft, before the owner approves it."""
     if idempotency_key and (existing := _find_by_key(db, org_id, idempotency_key)):
         return existing, False
-    candidates = reorder_candidates(db, org_id, attention_products(db, org_id), now or _now())
+    org = db.get(Organization, org_id)
+    assert org is not None
+    candidates = reorder_candidates(db, org, now or _now())
     if not candidates:
         raise ConflictError("Nothing needs reordering right now.")
     data = PurchaseOrderCreate(

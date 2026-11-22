@@ -44,18 +44,26 @@ class ReorderLine(BaseModel):
     name: str
     unit: str
     stock_on_hand: int
+    on_order: int  # units on open purchase orders (draft, approved, partly received)
     reorder_level: int
-    sold_recently: int
     suggested_quantity: int
+    # "recent_sales": from the daily rate below; "reorder_level": too little history for a rate.
+    basis: Literal["recent_sales", "reorder_level"]
+    daily_rate: Decimal | None  # units a day on in-stock days, one decimal
+    in_stock_days: int  # days in the window the rate is based on
+    lead_time_days: int
+    lead_time_source: Literal["supplier", "store_default"]
+    supplier_name: str | None  # supplier of the product's latest purchase order
     unit_cost: Decimal | None
 
 
 class ReorderSuggestions(BaseModel):
-    """Rule-based, not a forecast: see `services/overview.py` for the formula."""
+    """From recent in-stock sales and delivery time: see `services/reorder.py`."""
 
     lines: list[ReorderLine]
     total_count: int
-    lookback_days: int
+    window_days: int
+    cover_days: int
     estimated_cost: Decimal | None
 
 
