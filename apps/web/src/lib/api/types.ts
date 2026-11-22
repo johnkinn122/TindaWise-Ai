@@ -22,7 +22,8 @@ export interface Product {
   category: Category | null;
   unit: string;
   price: string;
-  cost: string;
+  /** Null for cashiers: the API doesn't send costs to roles that may not see them. */
+  cost: string | null;
   currency: string;
   stock_on_hand: number;
   reorder_level: number;

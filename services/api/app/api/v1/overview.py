@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.deps import Auth, DbSession
+from app.api.deps import Auth, DbSession, can_see_costs
 from app.models import Role
 from app.schemas.overview import Overview
 from app.services import overview as service
@@ -16,5 +16,5 @@ def get_overview(db: DbSession, auth: Auth):
         db,
         auth.organization,
         cashier_id=auth.user.id if is_cashier else None,
-        include_costs=not is_cashier,
+        include_costs=can_see_costs(auth),
     )

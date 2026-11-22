@@ -4,6 +4,32 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Fix: cashiers could see product costs (`fix/hide-cost-from-cashiers`)
+
+### What happened
+`GET /products`, `/products/{id}` and `/products/lookup` returned `cost` to every role. Cashiers saw
+"Cost" and "Margin per unit" on product pages, and the POS search passed costs to their browser.
+The Overview (previous entry) already hid costs, so the two disagreed.
+
+### Fix
+- One rule, `can_see_costs` in `api/deps.py` (owners and managers), used by products and Overview.
+- Product reads return `cost: null` for cashiers. Writes are owner/manager-only, so they're unchanged.
+- Web: `Product.cost` is `string | null`; the product page leaves out Cost and Margin when it's null.
+
+### Verified
+- pytest 69/69 (2 new: cashiers get `null` from list, search, detail and lookup; owners and
+  managers get the cost). Ruff clean.
+- Vitest 66/66, typecheck and ESLint clean. Playwright 52/52 (cashier product page shows no cost or
+  margin; the owner's product test still checks the margin).
+- Live API: cashier `cost = null`, owner `cost = 20.00`.
+
+### Notes
+- The dev API's reload hung again after switching branches (git rewrites many files at once). Also
+  seen: stopping the `npm run dev:api` terminal on Windows can leave uvicorn running; stop the
+  `python` processes holding :8000.
+
+---
+
 ## 2026-11-22 — Real Overview (`feature/real-overview`)
 
 ### Built
@@ -45,8 +71,7 @@ Newest entries first. Each entry records what was built, how it was verified, an
 - Reorder quantities are a simple rule (2 × reorder level or 14 days of sales). Demand forecasting
   replaces it in the ML phase.
 - No way to change a store's time zone in the UI yet (default `Asia/Manila`).
-- The products API (`GET /products`) still returns `cost` to cashiers. The Overview hides it,
-  but the product endpoints should follow the same rule (separate fix).
+- ~~The products API still returns `cost` to cashiers~~: fixed in `fix/hide-cost-from-cashiers`.
 - Windows dev server: after many files change at once, uvicorn's reloader can leave an orphaned
   worker on :8000. Workaround: stop the leftover `python` process holding the port.
 - The Next.js dev badge covers the sidebar's "Dark mode" button in development only.

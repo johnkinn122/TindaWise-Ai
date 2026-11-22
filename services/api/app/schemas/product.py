@@ -60,7 +60,8 @@ class ProductRead(ORMModel):
     category: CategoryRead | None
     unit: str
     price: Decimal
-    cost: Decimal
+    # Null for roles that may not see costs (cashiers); see api/deps.can_see_costs.
+    cost: Decimal | None
     currency: str
     stock_on_hand: int
     reorder_level: int
