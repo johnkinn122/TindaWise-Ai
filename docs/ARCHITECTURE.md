@@ -416,7 +416,8 @@ Consequences handled in the code:
 
 ## Machine learning — `services/ml`
 
-🚧 Built: baselines, a LightGBM forecaster, and a chronological backtest, all on synthetic data.
+🚧 Built: baselines, a LightGBM forecaster, a chronological backtest, a reorder simulation and
+anomaly detection experiments, all on synthetic data. Reorder suggestions in the app use the result.
 Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS.md`](ml/EXPERIMENTS.md).
 
 - **Separate Python package** (`tindawise_ml`) with its own virtual environment and dependencies
@@ -484,9 +485,18 @@ Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS
   forecast + buffer. Forecasts are refreshed weekly. It reports fill rate, lost units,
   stockout days, days of stock and orders placed.
 
+- **Anomaly detection** (`anomalies.py`, synthetic only): labelled anomalies are planted (spikes
+  of +max(5, 3 × usual); zero-sale days, while in stock, for products that usually sell 3+ a
+  day). Three detectors score every product-day from **earlier in-stock days only** (28-day
+  windows shifted by a day; at least 14 days needed): a ratio baseline, a robust z-score
+  (median/MAD) and a negative binomial tail probability. High and low are separate alerts with
+  separate thresholds, chosen on the validation period and scored once on the test period.
+  Result: the ratio baseline is the best on this data (`docs/ml/EXPERIMENTS.md`).
+
 | Planned next | Notes |
 |---|---|
-| Anomaly detection | Unusual sales and stock movements |
+| Anomaly alerts in the app | Nightly ratio check from the demand table; needs a place to show and dismiss alerts |
+| Stock anomalies (shrinkage) | Unexplained losses in the stock ledger; needs a simulation of count corrections first |
 
 ## AI agents
 

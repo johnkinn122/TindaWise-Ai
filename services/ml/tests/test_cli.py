@@ -64,3 +64,11 @@ def test_backtest_on_an_exported_csv_has_no_synthetic_extras(tmp_path, capsys):
     assert "SYNTHETIC" not in out
     assert "oracle" not in out
     assert out.count("| lightgbm") == 2
+
+
+def test_anomalies_prints_both_kinds_for_every_detector(capsys):
+    assert main(["anomalies", "--days", "200", "--period-days", "28", "--rate", "0.05"]) == 0
+    out = capsys.readouterr().out
+    assert "Planted" in out and "SYNTHETIC" in out
+    for detector in ("ratio (baseline)", "robust_z", "count_tail"):
+        assert out.count(f"| {detector} |") == 2, detector

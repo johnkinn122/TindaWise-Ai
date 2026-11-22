@@ -4,6 +4,51 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — ML: anomaly detection experiments (`feature/ml-anomalies`)
+
+### Built
+- `tindawise_ml/anomalies.py`:
+  - labelled anomaly injection (spikes, and zero-sale days on regular sellers, in-stock days only)
+  - three detectors that score from earlier in-stock days only (ratio baseline, robust z, negative
+    binomial tail), each with separate high and low scores
+  - per-kind evaluation: threshold by best F1 on validation, then precision, recall, false alarms
+    per week and average precision on the test period
+- `python -m tindawise_ml anomalies` / `npm run anomalies:ml`. `scipy` declared in
+  `pyproject.toml` (already installed through LightGBM).
+
+### Results (synthetic; full table in EXPERIMENTS.md)
+- The ratio baseline was best: average precision 0.66 for drops and 0.50 for spikes, against 0.52 and
+  0.45 for the count model and 0.29 and 0.30 for the robust z-score. About 1 false alarm a week for
+  the whole store.
+
+### Found and fixed
+- **Combining spikes and drops in one ranking hid what each detector is good at.** The first
+  run had ratio drops at 0.86 but spikes at 0.10, and the robust z-score the reverse. Each
+  detector now gives separate high and low scores with separate thresholds, which is also how an
+  app would alert ("unusually high" vs "nothing recorded").
+- **pandas 3's `stack()` keeps empty cells.** `scored_days` was keeping stockout and warm-up days
+  with an empty score. They never alerted and carried no labels, so no figure changed, but they
+  are now dropped explicitly. A test checks only judgeable days remain.
+- A hand-computed test assumed a negative binomial where the window's variance was below its
+  mean, so the detector correctly used Poisson. The test now checks the Poisson case, and has
+  a separate negative binomial case.
+
+### Verified
+- ML pytest 119/119 (17 new): injection labels every change and touches in-stock days only,
+  drops only on regular sellers, same seed → same anomalies, **no detector reads day d or later
+  for days before d**, warm-up and stockout days aren't scored or used as history, each
+  detector's score checked by hand (median/MAD ignoring an extreme day, Poisson and negative
+  binomial tails), high and low separate, metrics and average precision by hand, thresholds
+  never chosen on test days, CLI.
+- Ruff clean.
+
+### Known issues / open items
+- Synthetic, planted anomalies only. Few drops per period (4-11), so per-dataset numbers swing.
+- No weekday adjustment. No stock (shrinkage) anomalies yet.
+- Nothing in the app yet. Next: a nightly "worth a look" list using the ratio rule.
+
+---
+
 ## 2026-11-23 — Fix: times shown in the store's time zone (`fix/store-timezone-display`)
 
 ### What was wrong
