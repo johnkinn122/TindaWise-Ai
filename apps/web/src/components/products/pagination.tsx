@@ -9,17 +9,19 @@ interface PaginationProps {
   total: number;
   /** Current query string without the page, so filters are kept. */
   searchParams: Record<string, string>;
+  /** List page the links point to. */
+  basePath?: string;
 }
 
-function hrefFor(page: number, searchParams: Record<string, string>) {
+function hrefFor(page: number, searchParams: Record<string, string>, basePath: string) {
   const params = new URLSearchParams(searchParams);
   if (page > 1) params.set("page", String(page));
   else params.delete("page");
   const query = params.toString();
-  return query ? `/products?${query}` : "/products";
+  return query ? `${basePath}?${query}` : basePath;
 }
 
-export function Pagination({ page, pageSize, total, searchParams }: PaginationProps) {
+export function Pagination({ page, pageSize, total, searchParams, basePath = "/products" }: PaginationProps) {
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
@@ -32,7 +34,7 @@ export function Pagination({ page, pageSize, total, searchParams }: PaginationPr
       <div className="flex gap-2">
         {page > 1 ? (
           <Button variant="outline" asChild>
-            <Link href={hrefFor(page - 1, searchParams)}>
+            <Link href={hrefFor(page - 1, searchParams, basePath)}>
               <ChevronLeft aria-hidden="true" />
               Previous
             </Link>
@@ -45,7 +47,7 @@ export function Pagination({ page, pageSize, total, searchParams }: PaginationPr
         )}
         {page < lastPage ? (
           <Button variant="outline" asChild>
-            <Link href={hrefFor(page + 1, searchParams)}>
+            <Link href={hrefFor(page + 1, searchParams, basePath)}>
               Next
               <ChevronRight aria-hidden="true" />
             </Link>

@@ -7,9 +7,9 @@
 ```
 tindawise-ai/
 ├── apps/
-│   └── web/                 ✅ Next.js frontend: app shell, Overview, Products, Point of Sale (live API)
+│   └── web/                 ✅ Next.js frontend: Overview, Products, Point of Sale, Suppliers, Purchase orders
 ├── services/
-│   ├── api/                 ✅ FastAPI backend: auth, products, inventory ledger, sales, overview
+│   ├── api/                 ✅ FastAPI backend: auth, products, inventory ledger, sales, overview, purchasing
 │   └── ml/                  📋 Forecasting + anomaly detection (scikit-learn, LightGBM)
 ├── packages/                📋 Shared TypeScript types and UI used across apps
 ├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); deploy planned
@@ -46,7 +46,9 @@ src/
 │       ├── error.tsx           Fallback error screen inside the shell
 │       ├── products/           Live: list, /new, /[id] (detail + stock), /[id]/edit, actions.ts
 │       ├── sell/               Live: checkout screen, products/route.ts (lookup for the browser), actions.ts
-│       └── sell|inventory|suppliers|reports/page.tsx   Planned-module placeholders
+│       ├── suppliers/          Live: list, /new, /[id]/edit (archive there), actions.ts
+│       ├── purchase-orders/    Live: list (status tabs), /new, /[id] (actions, deliveries, history), /[id]/edit
+│       └── inventory|reports/page.tsx   Planned-module placeholders
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
 │   ├── layout/                 App shell: sidebar, mobile drawer, top bar, nav, theme toggle
@@ -111,11 +113,14 @@ src/
 app/
 ├── api/          HTTP only: routes, query params, status codes. No business rules.
 │   ├── deps.py   DB session, signed-in session (Bearer token), role checks
-│   └── v1/       auth.py, members.py, categories.py, products.py, sales.py, overview.py
+│   └── v1/       auth.py, members.py, categories.py, products.py, sales.py, overview.py,
+│                 suppliers.py, purchase_orders.py
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
 │   ├── auth.py        sign-up, sign-in, sessions, team membership
 │   ├── sales.py       checkout: prices from the DB, all-or-nothing, receipt numbers
 │   ├── overview.py    dashboard figures: store-local days, comparisons, reorder rule
+│   ├── suppliers.py   supplier list/search, unique names per store (case-insensitive), archive
+│   ├── purchase_orders.py  draft → approve → receive; locks, idempotency, latest-cost rule
 │   ├── products.py    product + category rules, org-scoped queries
 │   └── inventory.py   the ONLY place stock changes
 ├── models/       SQLAlchemy tables
@@ -130,8 +135,13 @@ app/
 users ─┬─< memberships >─ organizations ─┬─< categories
        │   (role: owner/manager/cashier) ├─< products ──< stock_movements (append-only ledger)
        └─< sessions (token hash only)    ├─< stock_movements.created_by_user_id → users
-                                         └─< sales ──< sale_lines (name/price/cost snapshots)
-                                               └──< stock_movements.sale_id
+                                         ├─< sales ──< sale_lines (name/price/cost snapshots)
+                                         │     └──< stock_movements.sale_id
+                                         ├─< suppliers
+                                         └─< purchase_orders ──< purchase_order_lines (name/SKU/unit snapshots)
+                                               │  (supplier_id → suppliers, null only on drafts)
+                                               └──< purchase_order_receipts (one per delivery)
+                                                     └──< stock_movements.purchase_order_receipt_id
 ```
 
 - **Organization isolation:** every query filters by `organization_id`. A record from another
@@ -147,6 +157,30 @@ users ─┬─< memberships >─ organizations ─┬─< categories
 - **Store time zone:** `organizations.timezone` (IANA name, default `Asia/Manila`) decides where a
   day starts for reports. Postgres converts each sale's timestamp to the local date, so a sale at
   00:30 Manila time counts for that day even though it is still the previous day in UTC.
+
+### Purchase orders (`/api/v1/purchase-orders`)
+
+```
+draft ──approve (owner)──▶ approved ──receive──▶ partially_received ──receive──▶ received
+  │                           │                        │
+  └──cancel (owner/manager)   └──cancel (owner)        └──close short ──▶ closed
+```
+
+- **Who:** owners and managers draft, edit drafts, receive and close short. Only the owner approves
+  (`CanApprovePurchases`), and only the owner cancels an approved order. Cashiers get 403 on
+  suppliers and purchase orders.
+- **Lines lock at approval.** Only drafts can be edited; a draft may have no supplier yet, but
+  approval requires an active one (also a database CHECK).
+- **Receiving** locks the order row, then the products in id order (same lock order as checkout),
+  adds stock through `record_movement` as `purchase` movements tied to a `purchase_order_receipts`
+  row, and sets each product's cost to the order's unit cost (**latest-cost rule**; past sales keep
+  their own cost snapshot). `CHECK (quantity_received <= quantity_ordered)` backs the over-receive
+  check. Tested with 4 concurrent deliveries of 6 on an order of 10: exactly one succeeds.
+- **Retries:** `Idempotency-Key` on create, from-reorder and receive; a replay returns the original
+  order with HTTP 200.
+- **Numbers:** `PO-000001`, per store, from `organizations.last_po_number` under a row lock.
+- **From the Overview:** `POST /purchase-orders/from-reorder` drafts every current reorder
+  suggestion at today's costs (the same `reorder_candidates` function the Overview uses).
 
 ### Overview figures (`GET /api/v1/overview`)
 

@@ -142,3 +142,61 @@ export interface Overview {
     estimated_cost: string | null;
   };
 }
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PurchaseOrderStatus = "draft" | "approved" | "partially_received" | "received" | "closed" | "cancelled";
+
+export interface PurchaseOrderSummary {
+  id: string;
+  /** "PO-000001" */
+  code: string;
+  status: PurchaseOrderStatus;
+  /** Null only on drafts that don't have a supplier yet. */
+  supplier: { id: string; name: string; is_active: boolean } | null;
+  total: string;
+  currency: string;
+  line_count: number;
+  /** "2026-11-30" */
+  expected_on: string | null;
+  created_at: string;
+}
+
+export interface PurchaseOrderLine {
+  id: string;
+  product_id: string;
+  product_name: string;
+  sku: string;
+  unit: string;
+  quantity_ordered: number;
+  quantity_received: number;
+  quantity_remaining: number;
+  unit_cost: string;
+  line_total: string;
+}
+
+export interface PurchaseOrderReceipt {
+  id: string;
+  note: string | null;
+  created_at: string;
+  received_by: string | null;
+  lines: { product_id: string; product_name: string; quantity: number }[];
+}
+
+export interface PurchaseOrder extends PurchaseOrderSummary {
+  notes: string | null;
+  lines: PurchaseOrderLine[];
+  receipts: PurchaseOrderReceipt[];
+  history: { action: "created" | "approved" | "received" | "closed" | "cancelled"; at: string; by: string | null }[];
+  updated_at: string;
+}

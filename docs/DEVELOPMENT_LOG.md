@@ -4,6 +4,59 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Suppliers and purchase orders (`feature/suppliers-purchase-orders`, based on `fix/hide-cost-from-cashiers`)
+
+### Decisions (owner)
+- Only the owner approves purchase orders; managers draft and receive.
+- Receiving sets the product's cost to the order's unit cost (latest cost).
+- Partial deliveries are supported, and an order can be closed short.
+- The Overview's "Create purchase order" drafts an order from the reorder suggestions.
+
+### Built
+- Migration 5: `suppliers` (unique name per store, ignoring case), `purchase_orders`,
+  `purchase_order_lines` (name/SKU/unit snapshots), `purchase_order_receipts` (one per delivery),
+  `organizations.last_po_number`, `stock_movements.purchase_order_receipt_id`.
+- API: `/suppliers` (list/search, create, edit, archive) and `/purchase-orders` (list by status,
+  create, `from-reorder`, edit draft, approve, receive, close, cancel). Statuses: draft, approved,
+  partially received, received, closed, cancelled. History records who did what and when.
+- The reorder rule moved into `reorder_candidates`, shared by the Overview and `from-reorder`.
+- Web: Suppliers (list, add, edit, archive), Purchase orders (status tabs, draft editor with product
+  search and live totals, order page with role-aware actions, delivery form, deliveries, history),
+  a "Purchase orders" nav item, and the Overview button now works.
+- Shared pieces: `lib/form-state.ts` (moved out of the products actions), `ConfirmActionButton`,
+  date formatters in `lib/format.ts`, `basePath` on `Pagination`.
+
+### Verified
+- pytest 92/92 (23 new). Includes: numbering per store, default costs, repeated/archived/foreign
+  products, draft edit replacing lines, idempotent create, owner-only approval, archived supplier,
+  partial then full delivery (stock, latest cost, ledger rows), over-receiving, retried delivery
+  applied once, **4 concurrent deliveries of 6 on an order of 10 → exactly one succeeds**, close
+  short, cancel rules, from-reorder, status filters, cashier 403, store isolation. Ruff clean.
+- Vitest 77/77 (11 new: action rules per role and status, approval blockers, totals in centavos).
+- Playwright 65/65, twice: supplier and product setup, draft → approve → short delivery → rest,
+  stock and cost on the product page, Overview → draft → cancel, status tabs, cashier blocked, axe
+  on the new pages (light and dark) and on an order page.
+- Manual: the full flow as manager and owner at 1440px; editor and order page at 390px dark, no
+  horizontal overflow, no console errors.
+
+### Found and fixed
+- The case-insensitive supplier index was generated as `lower('name')` (a constant), which would
+  have allowed one supplier per store. Now `lower(name)`; checked in Postgres.
+- A draft cancelled before choosing a supplier broke the "supplier required" CHECK; cancelled
+  orders are now allowed without one.
+- Lines within one delivery were listed in random order (same timestamp); now in the order's line order.
+- axe: the product search's `aria-controls` pointed at a results list that wasn't rendered.
+
+### Known issues / open items
+- No PDF or email of a purchase order to send the supplier yet; it's a record inside Tindawise.
+- Archived suppliers can't be shown or restored from the UI yet.
+- The order page shows the ordered total; after closing short there is no "received value" line.
+- The PO editor reuses the checkout's product search route (`/sell/products`).
+- Dev API on Windows: the auto-reloader hung three times in this session. Workaround: run
+  `uvicorn app.main:app --port 8000` without `--reload` and restart after API changes.
+
+---
+
 ## 2026-11-22 — Fix: cashiers could see product costs (`fix/hide-cost-from-cashiers`)
 
 ### What happened

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import type { Overview } from "@/lib/api/types";
 import { formatNumber, formatPeso } from "@/lib/format";
 import { toCents } from "@/lib/money";
+import { CreateOrderFromSuggestionsButton } from "./create-order-button";
 import { Panel } from "./panel";
 
 interface ReorderCardProps {
@@ -64,9 +64,7 @@ export function ReorderCard({ reorder, canOrder }: ReorderCardProps) {
           <div className="grid gap-1 px-4 pb-4 pt-3 sm:px-5">
             {canOrder && (
               <div className="mb-2">
-                <Button disabled aria-describedby="reorder-pending">
-                  Create purchase order
-                </Button>
+                <CreateOrderFromSuggestionsButton />
               </div>
             )}
             <p className="text-xs text-muted-foreground">
@@ -74,8 +72,8 @@ export function ReorderCard({ reorder, canOrder }: ReorderCardProps) {
               more. A simple rule, not a forecast.
             </p>
             {canOrder && (
-              <p id="reorder-pending" className="text-xs text-muted-foreground">
-                Ordering turns on when purchase orders are built.
+              <p id="reorder-draft-note" className="text-xs text-muted-foreground">
+                Creates a draft with every suggestion at current costs. You choose the supplier; the owner approves.
               </p>
             )}
           </div>
