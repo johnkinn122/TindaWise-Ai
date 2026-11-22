@@ -30,3 +30,14 @@ test("a cashier has no Team menu and can't open the team page", async ({ page })
   await page.goto("/settings/team");
   await expect(page.getByText("Only the store owner can manage the team.")).toBeVisible();
 });
+
+test("a cashier's overview shows their own sales and no costs", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Your sales today")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your sales this week" })).toBeVisible();
+  await expect(page.getByText(/gross margin/i)).toHaveCount(0);
+  const reorder = page.getByRole("region", { name: "Reorder suggestions" });
+  await expect(reorder.getByText("Coca-Cola 1.5L")).toBeVisible();
+  await expect(reorder.getByText("Estimated cost")).toHaveCount(0);
+  await expect(reorder.getByRole("button", { name: "Create purchase order" })).toHaveCount(0);
+});

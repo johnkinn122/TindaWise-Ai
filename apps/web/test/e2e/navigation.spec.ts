@@ -1,10 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-test("overview labels its numbers as sample data", async ({ page }) => {
+test("overview shows the store's real figures, not sample data", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
-  await expect(page.getByText("Sample data")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Restock 3 items before Monday" })).toBeVisible();
+  await expect(page.getByText("Sample data")).toHaveCount(0);
+  await expect(page.getByText("Gross margin today")).toBeVisible();
+  // The seed has products below their reorder level (e.g. Coca-Cola 1.5L is out of stock).
+  const watch = page.getByRole("region", { name: "Stock to watch" });
+  await expect(watch.getByRole("cell", { name: "Coca-Cola 1.5L" })).toBeVisible();
+  const reorder = page.getByRole("region", { name: "Reorder suggestions" });
+  await expect(reorder.getByText("Coca-Cola 1.5L")).toBeVisible();
+  await expect(reorder.getByText("Estimated cost")).toBeVisible();
+  await expect(reorder.getByText(/A simple rule, not a forecast/)).toBeVisible();
 });
 
 test("the first Tab reaches the skip link, which jumps to main content", async ({ page }) => {

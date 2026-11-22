@@ -7,9 +7,9 @@
 ```
 tindawise-ai/
 ├── apps/
-│   └── web/                 ✅ Next.js frontend: app shell, Overview (sample data), Products (live API)
+│   └── web/                 ✅ Next.js frontend: app shell, Overview, Products, Point of Sale (live API)
 ├── services/
-│   ├── api/                 ✅ FastAPI backend: products, categories, inventory ledger
+│   ├── api/                 ✅ FastAPI backend: auth, products, inventory ledger, sales, overview
 │   └── ml/                  📋 Forecasting + anomaly detection (scikit-learn, LightGBM)
 ├── packages/                📋 Shared TypeScript types and UI used across apps
 ├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); deploy planned
@@ -42,7 +42,7 @@ src/
 │   ├── globals.css             Design tokens + Resibo card styles
 │   └── (dashboard)/            Route group: shares the app shell, not part of the URL
 │       ├── layout.tsx          Sidebar + top bar + <main>
-│       ├── page.tsx            "/" Overview (sample data)
+│       ├── page.tsx            "/" Overview (live: KPIs, week chart, stock to watch, reorder list)
 │       ├── error.tsx           Fallback error screen inside the shell
 │       ├── products/           Live: list, /new, /[id] (detail + stock), /[id]/edit, actions.ts
 │       ├── sell/               Live: checkout screen, products/route.ts (lookup for the browser), actions.ts
@@ -50,12 +50,14 @@ src/
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
 │   ├── layout/                 App shell: sidebar, mobile drawer, top bar, nav, theme toggle
-│   ├── dashboard/              Overview building blocks: KPI strip, chart, stock table, Resibo card
+│   ├── dashboard/              Overview building blocks: KPI strip, chart, stock table, reorder card,
+│   │                           Resibo card (AI only; unused until the ML phase)
 │   └── products/               Filters, table, pagination, product form, stock form, archive dialog
 └── lib/
     ├── api/                    server-only API client + typed product endpoints
     ├── format.ts               Peso / number / percent formatting (en-PH)
-    ├── sample-data.ts          SAMPLE DATA ONLY — replaced by API calls later
+    ├── overview.ts             Overview response → KPI wording, chart rows, axis ticks (unit-tested)
+    ├── sample-data.ts          SAMPLE DATA ONLY: the AI reorder suggestion for the Resibo card
     └── utils.ts                cn() class merging
 ```
 
@@ -87,8 +89,11 @@ src/
   focus moves to an error summary, and typed values are kept after a failed submit.
 - **Stock changes are idempotent from the UI too.** The stock form creates an `Idempotency-Key` at
   submit time, so a double submit or network retry is applied once.
-- **AI actions stay inert until approval exists.** The Resibo card's "Create purchase order" is disabled
-  until the backend has a human-approval flow (claude.md §9).
+- **AI actions stay inert until approval exists.** "Create purchase order" is disabled until the
+  backend has purchase orders with a human-approval flow (claude.md §9).
+- **Rules are not dressed up as AI.** The Overview's reorder list is a fixed rule, so it uses a plain
+  panel, not the Resibo receipt look, which MASTER.md §7 reserves for AI output. There is no forecast
+  line on the sales chart until a model exists.
 
 ## Backend — `services/api`
 
@@ -106,10 +111,11 @@ src/
 app/
 ├── api/          HTTP only: routes, query params, status codes. No business rules.
 │   ├── deps.py   DB session, signed-in session (Bearer token), role checks
-│   └── v1/       auth.py, members.py, categories.py, products.py, sales.py
+│   └── v1/       auth.py, members.py, categories.py, products.py, sales.py, overview.py
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
 │   ├── auth.py        sign-up, sign-in, sessions, team membership
 │   ├── sales.py       checkout: prices from the DB, all-or-nothing, receipt numbers
+│   ├── overview.py    dashboard figures: store-local days, comparisons, reorder rule
 │   ├── products.py    product + category rules, org-scoped queries
 │   └── inventory.py   the ONLY place stock changes
 ├── models/       SQLAlchemy tables
@@ -138,6 +144,24 @@ users ─┬─< memberships >─ organizations ─┬─< categories
 - **No double-applied retries:** an optional `Idempotency-Key` header is stored on the movement with a
   unique constraint per organization. A replay returns the original movement with HTTP 200.
 - **Nothing is hard-deleted:** products are archived (`is_active = false`); movements are never edited.
+- **Store time zone:** `organizations.timezone` (IANA name, default `Asia/Manila`) decides where a
+  day starts for reports. Postgres converts each sale's timestamp to the local date, so a sale at
+  00:30 Manila time counts for that day even though it is still the previous day in UTC.
+
+### Overview figures (`GET /api/v1/overview`)
+
+| Figure | Definition |
+|---|---|
+| Sales, transactions | Sum of sale totals and number of sales on the store's current local day |
+| Comparison | Same weekday one week earlier. No sales then → no percentage is shown |
+| Gross margin | (sales − cost) / sales, using the cost copied onto each sale at checkout. Products saved with cost 0 overstate it |
+| Week chart | Sunday to Saturday, local days; days that haven't happened are `null`, not 0 |
+| Stock to watch | Active products with stock ≤ reorder level; out of stock first, then lowest share of the level |
+| Reorder quantity | Rule, not a forecast: reach max(2 × reorder level, units sold in the last 14 days). Omitted when that is 0 |
+
+Cashiers get the same response shape with `sales_scope: "mine"` (their own sales only, matching the
+sales list), `costs_visible: false`, and every cost-derived field (`gross_margin`, `unit_cost`,
+`estimated_cost`) set to `null` by the API, not just hidden in the UI.
 
 ### Checkout (Point of Sale)
 

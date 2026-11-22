@@ -13,33 +13,41 @@ import {
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatPeso, formatPesoWhole } from "@/lib/format";
-import type { DailySales } from "@/lib/sample-data";
+import { type DailySales, niceTicks } from "@/lib/overview";
 import { Panel } from "./panel";
 
+// A forecast series (dashed, so it is never mistaken for actuals) returns with the ML phase.
 const series = [
   { key: "thisWeek", label: "This week", color: "var(--chart-1)", dashed: false },
   { key: "lastWeek", label: "Last week", color: "var(--chart-2)", dashed: false },
-  { key: "forecast", label: "Forecast", color: "var(--chart-3)", dashed: true },
 ] as const;
 
-const compactPeso = (value: number) => `₱${Math.round(value / 1000)}k`;
+const compactPesoFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+const compactPeso = (value: number) => compactPesoFormatter.format(value);
 
 interface SalesChartProps {
+  title?: string;
   data: DailySales[];
   /** Plain-language summary of the chart for screen readers. */
   summary: string;
 }
 
 /**
- * Weekly sales line chart. Forecast is always dashed so it is never mistaken for actuals.
+ * Weekly sales line chart: this week's actual sales against the same days last week.
  * "View as table" gives an accessible alternative to the chart (MASTER.md §9).
  */
-export function SalesChart({ data, summary }: SalesChartProps) {
+export function SalesChart({ title = "Sales this week", data, summary }: SalesChartProps) {
   const [showTable, setShowTable] = useState(false);
+  const ticks = niceTicks(Math.max(...data.flatMap((row) => [row.thisWeek ?? 0, row.lastWeek])));
 
   return (
     <Panel
-      title="Sales this week"
+      title={title}
       action={
         <Button variant="outline" onClick={() => setShowTable((value) => !value)} aria-pressed={showTable}>
           {showTable ? "View as chart" : "View as table"}
@@ -100,8 +108,8 @@ export function SalesChart({ data, summary }: SalesChartProps) {
                 />
                 <YAxis
                   width={48}
-                  domain={[0, 24000]}
-                  ticks={[0, 6000, 12000, 18000, 24000]}
+                  domain={[0, ticks.at(-1) ?? 0]}
+                  ticks={ticks}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={compactPeso}
@@ -129,7 +137,8 @@ export function SalesChart({ data, summary }: SalesChartProps) {
                     stroke={s.color}
                     strokeWidth={s.key === "thisWeek" ? 2.5 : 2}
                     strokeDasharray={s.dashed ? "6 5" : undefined}
-                    dot={false}
+                    // Dots on this week's days, so a week with one day so far still shows a mark.
+                    dot={s.key === "thisWeek" ? { r: 3, fill: s.color, strokeWidth: 0 } : false}
                     activeDot={{ r: 4 }}
                     connectNulls={false}
                     isAnimationActive={false}

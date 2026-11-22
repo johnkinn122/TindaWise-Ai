@@ -82,3 +82,62 @@ export interface Sale {
   item_count: number;
   lines: SaleLine[];
 }
+
+/** GET /overview. Money is a decimal string; gross_margin is a ratio string ("0.2240"). */
+export interface SalesFigures {
+  sales: string;
+  transactions: number;
+  /** Null when there were no sales, or for roles that may not see costs. */
+  gross_margin: string | null;
+}
+
+export interface OverviewDay {
+  /** Calendar date in the store's time zone, e.g. "2026-11-22". */
+  date: string;
+  /** Null for days that haven't happened yet. */
+  sales: string | null;
+  last_week_sales: string;
+}
+
+export interface StockWatchItem {
+  id: string;
+  name: string;
+  category: string | null;
+  unit: string;
+  stock_on_hand: number;
+  reorder_level: number;
+  stock_status: StockStatus;
+}
+
+export interface ReorderLine {
+  product_id: string;
+  name: string;
+  unit: string;
+  stock_on_hand: number;
+  reorder_level: number;
+  sold_recently: number;
+  suggested_quantity: number;
+  unit_cost: string | null;
+}
+
+export interface Overview {
+  as_of: string;
+  timezone: string;
+  currency: string;
+  /** "mine" for cashiers: sales figures cover their own sales only. */
+  sales_scope: "store" | "mine";
+  costs_visible: boolean;
+  today: SalesFigures;
+  same_day_last_week: SalesFigures;
+  /** Sunday to Saturday of the current week. */
+  week: OverviewDay[];
+  low_stock_count: number;
+  out_of_stock_count: number;
+  stock_to_watch: StockWatchItem[];
+  reorder: {
+    lines: ReorderLine[];
+    total_count: number;
+    lookback_days: number;
+    estimated_cost: string | null;
+  };
+}

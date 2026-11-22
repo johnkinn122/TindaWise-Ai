@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { Kpi } from "@/lib/sample-data";
+import type { Kpi } from "@/lib/overview";
 
 const trendStyles: Record<Kpi["trend"], { className: string; symbol: string; srLabel: string }> = {
   up: { className: "text-success", symbol: "▲", srLabel: "Up" },
