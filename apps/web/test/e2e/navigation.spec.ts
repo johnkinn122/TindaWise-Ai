@@ -32,11 +32,6 @@ test("sidebar marks the current page", async ({ page }) => {
   await expect(nav.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current", "page");
 });
 
-test("planned modules say they are planned", async ({ page }) => {
-  await page.goto("/inventory");
-  await expect(page.getByRole("heading", { name: "Inventory is planned" })).toBeVisible();
-});
-
 test("the top bar shows the signed-in store and person", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("banner").getByText("Aling Nena's Mini-Mart (sample)")).toBeVisible();

@@ -104,9 +104,19 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
 
           <Panel title="Stock history">
             <MovementHistory movements={movements.items} />
-            {movements.total > movements.items.length && (
-              <p className="border-t border-border px-4 py-3 text-[0.8125rem] text-muted-foreground sm:px-5">
-                Showing the latest {movements.items.length} of {formatNumber(movements.total)} changes.
+            {(movements.total > movements.items.length || (canManage && movements.total > 0)) && (
+              <p className="flex flex-wrap justify-between gap-x-4 gap-y-1 border-t border-border px-4 py-3 text-[0.8125rem] text-muted-foreground sm:px-5">
+                {movements.total > movements.items.length && (
+                  <span>
+                    Showing the latest {movements.items.length} of {formatNumber(movements.total)} changes.
+                  </span>
+                )}
+                {/* The full ledger shows who made each change and links to its sale or delivery. */}
+                {canManage && (
+                  <Link href={`/inventory?product=${product.id}`} className="font-medium text-primary hover:underline">
+                    See all in Inventory
+                  </Link>
+                )}
               </p>
             )}
           </Panel>
