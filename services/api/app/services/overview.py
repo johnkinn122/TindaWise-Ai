@@ -3,18 +3,21 @@
 Definitions (keep in sync with docs/ARCHITECTURE.md):
 - Days are calendar days in the store's time zone (`organizations.timezone`), not UTC.
 - Weeks run Sunday to Saturday. Comparisons are against the same weekday one week earlier.
-- Sales = sum of sale totals. Transactions = number of sales.
-- Gross margin = (sales - cost) / sales, using the cost copied onto each sale at checkout.
-  Products saved with cost 0 make the margin look higher than it is.
+- Sales = net sales: sale totals minus refunds, each counted on the day it happened (a refund
+  today lowers today's sales, even for an older receipt). Transactions = number of sales.
+- Gross margin = (net sales - net cost) / net sales. Net cost = cost copied onto each sale at
+  checkout, minus the cost of refunded units put back on the shelf (units not restocked stay a
+  loss). Products saved with cost 0 make the margin look higher than it is.
 - "Needs attention" = active product with stock at or below its reorder level (out of stock
   included).
 - Reorder suggestion (a rule, not a forecast): order enough to reach
-  max(2 x reorder level, units sold in the last 14 days). It is shown only when that is above
-  zero, so an item with no reorder level and no recent sales gets no number.
+  max(2 x reorder level, units sold in the last 14 days minus units refunded in that time).
+  It is shown only when that is above zero, so an item with no reorder level and no recent
+  sales gets no number.
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -22,7 +25,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import Numeric, case, cast, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Organization, Product, Sale, SaleLine
+from app.models import Organization, Product, Refund, RefundLine, Sale, SaleLine
 from app.schemas.overview import (
     Overview,
     OverviewDay,
@@ -43,9 +46,22 @@ REORDER_LIMIT = 5
 
 @dataclass(frozen=True)
 class DayTotals:
+    """One store-local day. `sales` and `cost` are gross (as rung up); refunds are separate."""
+
     sales: Decimal = ZERO
     transactions: int = 0
     cost: Decimal = ZERO
+    refunds: Decimal = ZERO
+    refund_count: int = 0
+    restocked_cost: Decimal = ZERO  # cost of refunded units that went back on the shelf
+
+    @property
+    def net_sales(self) -> Decimal:
+        return self.sales - self.refunds
+
+    @property
+    def net_cost(self) -> Decimal:
+        return self.cost - self.restocked_cost
 
 
 def week_start(day: date) -> date:
@@ -80,15 +96,46 @@ def daily_totals(
             local.c.day, func.sum(local.c.total), func.count(), func.sum(local.c.cost_total)
         ).group_by(local.c.day)
     )
-    return {day: DayTotals(sales, count, cost) for day, sales, count, cost in rows}
+    days = {day: DayTotals(sales, count, cost) for day, sales, count, cost in rows}
+
+    # Refunds land on the day they were given, whenever the sale was. For one cashier's figures,
+    # refunds of that cashier's sales count (whoever gave the refund).
+    refund_filters = [
+        Refund.organization_id == org_id,
+        Refund.created_at >= start,
+        Refund.created_at < end,
+    ]
+    refunds_query = select(
+        func.date(func.timezone(zone, Refund.created_at)).label("day"),
+        Refund.total,
+        Refund.restocked_cost,
+    ).where(*refund_filters)
+    if cashier_id is not None:
+        refunds_query = refunds_query.join(Sale, Sale.id == Refund.sale_id).where(
+            Sale.created_by_user_id == cashier_id
+        )
+    refunds = refunds_query.subquery()
+    for day, total, count, restocked in db.execute(
+        select(
+            refunds.c.day,
+            func.sum(refunds.c.total),
+            func.count(),
+            func.sum(refunds.c.restocked_cost),
+        ).group_by(refunds.c.day)
+    ):
+        base = days.get(day, DayTotals())
+        days[day] = replace(base, refunds=total, refund_count=count, restocked_cost=restocked)
+    return days
 
 
 def _figures(totals: DayTotals, include_costs: bool) -> SalesFigures:
     margin = None
-    if include_costs and totals.sales > 0:
-        margin = ((totals.sales - totals.cost) / totals.sales).quantize(RATIO)
+    net = totals.net_sales
+    if include_costs and net > 0:
+        margin = ((net - totals.net_cost) / net).quantize(RATIO)
     return SalesFigures(
-        sales=totals.sales.quantize(CENT),
+        sales=net.quantize(CENT),
+        refunds=totals.refunds.quantize(CENT),
         transactions=totals.transactions,
         gross_margin=margin,
     )
@@ -109,7 +156,20 @@ def _sold_recently(
         )
         .group_by(SaleLine.product_id)
     )
-    return {product_id: int(quantity) for product_id, quantity in rows}
+    sold = {product_id: int(quantity) for product_id, quantity in rows}
+    refunded = db.execute(
+        select(RefundLine.product_id, func.sum(RefundLine.quantity))
+        .join(Refund, Refund.id == RefundLine.refund_id)
+        .where(
+            Refund.organization_id == org_id,
+            Refund.created_at >= since,
+            RefundLine.product_id.in_(product_ids),
+        )
+        .group_by(RefundLine.product_id)
+    )
+    for product_id, quantity in refunded:
+        sold[product_id] = max(sold.get(product_id, 0) - int(quantity), 0)
+    return sold
 
 
 def suggested_quantity(stock_on_hand: int, reorder_level: int, sold_recently: int) -> int:
@@ -188,8 +248,8 @@ def build_overview(
         week.append(
             OverviewDay(
                 date=day,
-                sales=daily.get(day, empty).sales.quantize(CENT) if day <= today else None,
-                last_week_sales=daily.get(day - timedelta(days=7), empty).sales.quantize(CENT),
+                sales=daily.get(day, empty).net_sales.quantize(CENT) if day <= today else None,
+                last_week_sales=daily.get(day - timedelta(days=7), empty).net_sales.quantize(CENT),
             )
         )
 

@@ -6,7 +6,7 @@ from sqlalchemy import update
 
 from app.core.errors import InvalidInputError
 from app.db.session import SessionLocal
-from app.models import Organization, Role, Sale
+from app.models import Organization, Refund, Role, Sale
 from app.services.reports import (
     build_sales_report,
     granularity_for,
@@ -232,3 +232,91 @@ def test_cashiers_cannot_open_reports_and_stores_are_isolated(
     theirs = client.get(URL, params={"preset": "today"}, headers=other_headers).json()
     assert theirs["summary"]["transactions"] == 0
     assert theirs["products"] == []
+
+
+# ── Refunds ─────────────────────────────────────────────────────────────────
+
+
+def give_refund(client, headers, sale, items, when):
+    """`items` is [(line index, quantity, restock)]; the refund is backdated to `when`."""
+    lines = [
+        {"sale_line_id": sale["lines"][i]["id"], "quantity": q, "restock": restock}
+        for i, q, restock in items
+    ]
+    response = client.post(
+        f"/api/v1/sales/{sale['id']}/refunds",
+        json={"lines": lines, "reason": "customer_return"},
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    refund_id = response.json()["refunds"][-1]["id"]
+    with SessionLocal() as db:
+        db.execute(update(Refund).where(Refund.id == refund_id).values(created_at=when))
+        db.commit()
+
+
+def test_refunds_count_on_the_day_given_and_figures_are_net(org, client, headers, make_product):
+    a = make_product(name="A", price="100.00", cost="60.00", initial_stock=10)
+    b = make_product(name="B", price="50.00", cost="20.00", initial_stock=10)
+    # Thursday 20 Nov: 2 A + 2 B = 300.00, cost 160.00.
+    recent = sell(client, headers, [(a, 2), (b, 2)], when=datetime(2026, 11, 20, 2, tzinfo=UTC))
+    # 31 Oct, outside both periods: 1 A.
+    old = sell(client, headers, [(a, 1)], when=datetime(2026, 10, 31, 2, tzinfo=UTC))
+    # Sun 22 Nov: 1 A from the recent sale back on the shelf (its 60.00 cost comes back).
+    give_refund(client, headers, recent, [(0, 1, True)], datetime(2026, 11, 22, 1, tzinfo=UTC))
+    # Sat 21 Nov: the old sale's A refunded, damaged (not restocked: its cost stays a loss).
+    give_refund(client, headers, old, [(0, 1, False)], datetime(2026, 11, 21, 2, tzinfo=UTC))
+
+    data = report(org, preset="last_7_days")
+
+    s = data.summary
+    assert (s.gross_sales, s.refunds, s.refund_count, s.sales) == (
+        Decimal("300.00"),
+        Decimal("200.00"),
+        2,
+        Decimal("100.00"),
+    )
+    assert s.transactions == 1
+    assert s.average_sale == Decimal("300.00")  # the basket at checkout
+    assert s.gross_profit == Decimal("0.00")  # 100 net - (160 - 60) net cost
+    assert s.gross_margin == Decimal("0.0000")
+    assert s.items_sold == 2  # 4 sold - 2 refunded
+    assert data.previous_summary.refunds == Decimal("0.00")  # the old sale's period is untouched
+
+    by_day = {p.start: p for p in data.series}
+    assert (by_day[date(2026, 11, 20)].sales, by_day[date(2026, 11, 20)].refunds) == (
+        Decimal("300.00"),
+        Decimal("0.00"),
+    )
+    assert by_day[date(2026, 11, 21)].sales == Decimal("-100.00")  # more refunded than sold
+    assert by_day[date(2026, 11, 21)].gross_profit == Decimal("-100.00")
+    assert by_day[date(2026, 11, 22)].gross_profit == Decimal("-40.00")  # margin given back
+
+    products = {p.name: p for p in data.products}
+    assert (products["A"].quantity, products["A"].sales, products["A"].gross_profit) == (
+        0,
+        Decimal("0.00"),
+        Decimal("-60.00"),
+    )
+    assert (products["B"].quantity, products["B"].sales) == (2, Decimal("100.00"))
+    assert data.categories[0].sales == Decimal("100.00")
+
+    [cash] = data.payments
+    assert (cash.sales, cash.refunds, cash.transactions) == (
+        Decimal("100.00"),
+        Decimal("200.00"),
+        1,
+    )
+
+
+def test_a_period_with_only_refunds_has_no_margin_or_average(org, client, headers, make_product):
+    a = make_product(price="10.00", cost="5.00", initial_stock=5)
+    sale = sell(client, headers, [(a, 1)], when=datetime(2026, 11, 1, 2, tzinfo=UTC))
+    give_refund(client, headers, sale, [(0, 1, True)], datetime(2026, 11, 22, 1, tzinfo=UTC))
+
+    s = report(org, preset="today").summary
+    assert s.sales == Decimal("-10.00")
+    assert s.transactions == 0
+    assert s.average_sale is None
+    assert s.gross_margin is None  # no ratio on zero or negative sales
+    assert s.gross_profit == Decimal("-5.00")

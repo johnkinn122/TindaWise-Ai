@@ -1,6 +1,7 @@
 """The sales report: one period, compared with the period of equal length just before it.
 
 Money is Decimal (serialized as a string); gross_margin is a Decimal fraction (0.2240 = 22.4%).
+Sales figures are net of refunds unless a field says gross (see app/services/reports.py).
 The report is for owners and managers, so cost-derived figures are always present.
 """
 
@@ -23,19 +24,23 @@ class Period(BaseModel):
 
 
 class ReportSummary(BaseModel):
-    sales: Decimal
-    transactions: int
-    average_sale: Decimal | None  # null with no sales
-    gross_profit: Decimal
-    gross_margin: Decimal | None  # null with no sales
-    items_sold: int
+    gross_sales: Decimal  # sales rung up in the period
+    refunds: Decimal  # refunds given in the period, whatever the sale date
+    refund_count: int
+    sales: Decimal  # net: gross_sales - refunds
+    transactions: int  # number of sales
+    average_sale: Decimal | None  # gross_sales / transactions; null with no sales
+    gross_profit: Decimal  # net sales - net cost
+    gross_margin: Decimal | None  # gross_profit / net sales; null when net sales <= 0
+    items_sold: int  # net of refunded units
 
 
 class SeriesPoint(BaseModel):
     """One bucket. `start` is the first day of the day/week/month; zero-filled, never missing."""
 
     start: date
-    sales: Decimal
+    sales: Decimal  # net
+    refunds: Decimal
     transactions: int
     gross_profit: Decimal
 
@@ -61,7 +66,8 @@ class CategoryRow(BaseModel):
 
 class PaymentRow(BaseModel):
     method: Literal["cash", "e_wallet"]
-    sales: Decimal
+    sales: Decimal  # net of refunds paid back by this method
+    refunds: Decimal
     transactions: int
 
 

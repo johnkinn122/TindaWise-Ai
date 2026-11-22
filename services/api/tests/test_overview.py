@@ -90,7 +90,12 @@ def test_cashiers_see_their_own_sales_and_no_costs(client, org, headers, make_pr
     mine = client.get("/api/v1/overview", headers=cashier).json()
     assert mine["sales_scope"] == "mine"
     assert mine["costs_visible"] is False
-    assert mine["today"] == {"sales": "50.00", "transactions": 1, "gross_margin": None}
+    assert mine["today"] == {
+        "sales": "50.00",
+        "refunds": "0.00",
+        "transactions": 1,
+        "gross_margin": None,
+    }
     assert mine["same_day_last_week"]["gross_margin"] is None
     assert mine["reorder"]["estimated_cost"] is None
     assert all(line["unit_cost"] is None for line in mine["reorder"]["lines"])
@@ -98,7 +103,12 @@ def test_cashiers_see_their_own_sales_and_no_costs(client, org, headers, make_pr
 
     store = client.get("/api/v1/overview", headers=headers).json()
     assert store["sales_scope"] == "store"
-    assert store["today"] == {"sales": "100.00", "transactions": 2, "gross_margin": "0.2000"}
+    assert store["today"] == {
+        "sales": "100.00",
+        "refunds": "0.00",
+        "transactions": 2,
+        "gross_margin": "0.2000",
+    }
     assert store["reorder"]["lines"][0]["unit_cost"] == "40.00"
 
 
@@ -173,3 +183,56 @@ def test_suggested_quantity_rule():
     assert suggested_quantity(stock_on_hand=3, reorder_level=5, sold_recently=30) == 27
     assert suggested_quantity(stock_on_hand=0, reorder_level=0, sold_recently=0) == 0
     assert suggested_quantity(stock_on_hand=50, reorder_level=5, sold_recently=4) == 0
+
+
+def refund_one(client, headers, sale, restock=True):
+    response = client.post(
+        f"/api/v1/sales/{sale['id']}/refunds",
+        json={
+            "lines": [{"sale_line_id": sale["lines"][0]["id"], "quantity": 1, "restock": restock}],
+            "reason": "customer_return",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+
+
+def test_todays_sales_are_net_of_refunds(client, org, headers, make_product):
+    product = make_product(price="50.00", cost="40.00", initial_stock=10)
+    cashier = auth_headers(org, Role.CASHIER)
+    cashier_sale = sell(client, cashier, product["id"], 2)  # 100.00
+    owner_sale = sell(client, headers, product["id"], 1)  # 50.00
+    refund_one(client, headers, cashier_sale)  # 50.00 back, unit restocked
+
+    store = client.get("/api/v1/overview", headers=headers).json()
+    assert store["today"]["sales"] == "100.00"  # 150 - 50
+    assert store["today"]["refunds"] == "50.00"
+    assert store["today"]["transactions"] == 2
+    # Net cost 120 - 40 restocked = 80, so (100 - 80) / 100.
+    assert store["today"]["gross_margin"] == "0.2000"
+
+    # The refund belongs to the cashier's sale, so it lowers the cashier's own figures.
+    mine = client.get("/api/v1/overview", headers=cashier).json()
+    assert (mine["today"]["sales"], mine["today"]["refunds"]) == ("50.00", "50.00")
+
+    refund_one(client, headers, owner_sale, restock=False)
+    mine = client.get("/api/v1/overview", headers=cashier).json()
+    assert mine["today"]["sales"] == "50.00"  # someone else's sale: not in "mine"
+
+
+def test_refunded_units_are_not_counted_as_recent_demand(client, headers, make_product):
+    # 10 in stock, 10 sold, 4 refunded and restocked → 4 left (level 4), recent demand 6.
+    fast = make_product(name="Fast seller", initial_stock=10, reorder_level=4)
+    sale = sell(client, headers, fast["id"], 10)
+    client.post(
+        f"/api/v1/sales/{sale['id']}/refunds",
+        json={
+            "lines": [{"sale_line_id": sale["lines"][0]["id"], "quantity": 4}],
+            "reason": "wrong_item",
+        },
+        headers=headers,
+    )
+    [line] = client.get("/api/v1/overview", headers=headers).json()["reorder"]["lines"]
+    assert line["sold_recently"] == 6
+    # max(2 x 4, 6) - 4 = 4. Counting the refunded units as demand would give max(8, 10) - 4 = 6.
+    assert line["suggested_quantity"] == 4

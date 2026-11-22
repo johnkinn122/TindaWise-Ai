@@ -26,7 +26,8 @@ interface SalesColumnsProps {
  */
 export function SalesColumns({ title, rows, summary, bucketName, action }: SalesColumnsProps) {
   const [showTable, setShowTable] = useState(false);
-  const ticks = niceTicks(Math.max(...rows.map((row) => row.sales), 0));
+  const values = rows.map((row) => row.sales);
+  const ticks = niceTicks(Math.max(...values, 0), Math.min(...values, 0));
 
   return (
     <Panel
@@ -46,7 +47,8 @@ export function SalesColumns({ title, rows, summary, bucketName, action }: Sales
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-4 sm:pl-5">{bucketName}</TableHead>
-                <TableHead className="text-right">Sales</TableHead>
+                <TableHead className="text-right">Net sales</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">Refunds</TableHead>
                 <TableHead className="text-right">Transactions</TableHead>
                 <TableHead className="pr-4 text-right sm:pr-5">Gross profit</TableHead>
               </TableRow>
@@ -56,6 +58,9 @@ export function SalesColumns({ title, rows, summary, bucketName, action }: Sales
                 <TableRow key={row.longLabel}>
                   <TableCell className="pl-4 sm:pl-5">{row.longLabel}</TableCell>
                   <TableCell className="tabular text-right">{formatPeso(row.sales)}</TableCell>
+                  <TableCell className="tabular hidden text-right text-muted-foreground sm:table-cell">
+                    {row.refunds > 0 ? formatPeso(row.refunds) : "—"}
+                  </TableCell>
                   <TableCell className="tabular text-right">{formatNumber(row.transactions)}</TableCell>
                   <TableCell className="tabular pr-4 text-right sm:pr-5">{formatPeso(row.grossProfit)}</TableCell>
                 </TableRow>
@@ -79,7 +84,7 @@ export function SalesColumns({ title, rows, summary, bucketName, action }: Sales
                 />
                 <YAxis
                   width={52}
-                  domain={[0, ticks.at(-1) ?? 0]}
+                  domain={[ticks[0] ?? 0, ticks.at(-1) ?? 0]}
                   ticks={ticks}
                   tickLine={false}
                   axisLine={false}
@@ -100,13 +105,16 @@ export function SalesColumns({ title, rows, summary, bucketName, action }: Sales
                           {formatNumber(row.transactions)} {row.transactions === 1 ? "sale" : "sales"} · profit{" "}
                           {formatPesoWhole(row.grossProfit)}
                         </p>
+                        {row.refunds > 0 && (
+                          <p className="tabular text-muted-foreground">after {formatPesoWhole(row.refunds)} refunded</p>
+                        )}
                       </div>
                     );
                   }}
                 />
                 <Bar
                   dataKey="sales"
-                  name="Sales"
+                  name="Net sales"
                   fill="var(--chart-1)"
                   maxBarSize={24}
                   radius={[4, 4, 0, 0]}

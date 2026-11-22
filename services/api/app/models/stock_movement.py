@@ -65,6 +65,10 @@ class StockMovement(UUIDPrimaryKeyMixin, Base):
     purchase_order_receipt_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("purchase_order_receipts.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # The refund this movement belongs to, when refunded units went back on the shelf.
+    refund_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("refunds.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # Who made the change (audit trail). Null for rows recorded before sign-in existed.
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True

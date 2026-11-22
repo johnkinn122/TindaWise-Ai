@@ -138,7 +138,9 @@ users ─┬─< memberships >─ organizations ─┬─< categories
        │   (role: owner/manager/cashier) ├─< products ──< stock_movements (append-only ledger)
        └─< sessions (token hash only)    ├─< stock_movements.created_by_user_id → users
                                          ├─< sales ──< sale_lines (name/price/cost snapshots)
-                                         │     └──< stock_movements.sale_id
+                                         │     ├──< stock_movements.sale_id
+                                         │     └──< refunds ──< refund_lines (→ sale_lines, price/cost copied)
+                                         │            └──< stock_movements.refund_id (restocked units)
                                          ├─< suppliers
                                          └─< purchase_orders ──< purchase_order_lines (name/SKU/unit snapshots)
                                                │  (supplier_id → suppliers, null only on drafts)
@@ -194,7 +196,12 @@ last_30_days, this_month, last_month) or `start` + `end` (store days, both inclu
 |---|---|
 | Period | Calendar days in the store's time zone, resolved by the API (so "today" is the store's day) |
 | Comparison | The same number of days, ending the day before the period starts |
-| Sales / gross profit / margin | Sale totals; sales − cost copied onto each sale line; profit ÷ sales |
+| Gross sales / refunds | Sale totals rung up in the period; refunds given in the period, whenever the sale was |
+| Sales (net) | Gross sales − refunds. Closed periods never change, because a refund counts on its own day |
+| Net cost | Cost copied onto each sale line − cost of refunded units put back on the shelf (units not restocked stay a loss) |
+| Gross profit / margin | Net sales − net cost; profit ÷ net sales (no margin when net sales ≤ 0) |
+| Average sale | Gross sales ÷ number of sales (the basket at checkout) |
+| Items, products, categories, payments | Net of refunded units and amounts; a product can show a negative line |
 | Buckets | By day up to 31 days, by week (Sunday start) up to 182, by month beyond; zero-filled |
 | Category | The product's category **today** (sales don't record it) |
 | Purchases | Stock received on purchase orders in the period × the order line's unit cost |
@@ -207,12 +214,12 @@ spreadsheet formula injection: text cells starting with `= + - @` get a leading 
 
 | Figure | Definition |
 |---|---|
-| Sales, transactions | Sum of sale totals and number of sales on the store's current local day |
+| Sales, transactions | Net sales (sale totals − refunds given that day) and number of sales on the store's current local day |
 | Comparison | Same weekday one week earlier. No sales then → no percentage is shown |
-| Gross margin | (sales − cost) / sales, using the cost copied onto each sale at checkout. Products saved with cost 0 overstate it |
+| Gross margin | (net sales − net cost) / net sales; net cost gives back the cost of restocked refunded units. Products saved with cost 0 overstate it |
 | Week chart | Sunday to Saturday, local days; days that haven't happened are `null`, not 0 |
 | Stock to watch | Active products with stock ≤ reorder level; out of stock first, then lowest share of the level |
-| Reorder quantity | Rule, not a forecast: reach max(2 × reorder level, units sold in the last 14 days). Omitted when that is 0 |
+| Reorder quantity | Rule, not a forecast: reach max(2 × reorder level, units sold − units refunded in the last 14 days). Omitted when that is 0 |
 
 Cashiers get the same response shape with `sales_scope: "mine"` (their own sales only, matching the
 sales list), `costs_visible: false`, and every cost-derived field (`gross_margin`, `unit_cost`,
@@ -234,8 +241,24 @@ sales list), `costs_visible: false`, and every cost-derived field (`gross_margin
 - **Every role can sell.** Cashiers see only their own sales; owners and managers see all.
 - **Barcode scanners** type the code and press Enter: `GET /products/lookup?code=` matches the
   barcode exactly, then the SKU case-insensitively.
-- Not yet: VAT computation, discounts, refunds/voids, offline mode, receipt printer integration
+- Not yet: VAT computation, discounts, voids, offline mode, receipt printer integration
   (printing uses the browser's print dialog with a 72 mm receipt layout).
+
+### Refunds (`POST /api/v1/sales/{id}/refunds`)
+
+- **Who:** owners and managers (`CanManageInventory`). Cashiers get 403 and see no refund button.
+- **The sale is never edited.** A receipt collects refunds (partial ones allowed) until every unit is
+  refunded. `sale_lines.quantity_refunded` and `sales.refunded_total` are running totals, backed by
+  CHECKs (`quantity_refunded <= quantity`, `refunded_total <= total`).
+- **The receipt sets the amount.** Price and cost are copied from the receipt line, so a refund pays
+  back exactly what was charged. The money goes back the way the sale was paid.
+- **Restock or not, per line.** Restocked units go back into stock as `return` movements linked to
+  the refund. Damaged or spoiled units don't change stock, and their cost stays a loss in reports.
+- **Concurrency:** the sale row is locked first, then products in id order, then the organization
+  (for the `R-000001` counter). Checkout never locks an existing sale, so the two can't deadlock.
+  Two refunds on one receipt run one after the other, and the second sees what the first refunded.
+- **Retries:** `Idempotency-Key` per refund attempt (unique per store). A replay returns the receipt
+  with HTTP 200, and a key reused on a different receipt is a 409.
 
 ### Authentication and roles
 

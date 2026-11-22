@@ -15,15 +15,16 @@ from app.schemas.product import StockStatus
 
 
 class SalesFigures(BaseModel):
-    sales: Decimal
+    sales: Decimal  # net: sales rung up minus refunds given that day
+    refunds: Decimal  # refunds given that day (already subtracted from `sales`)
     transactions: int
-    # (sales - cost) / sales, from costs copied onto each sale. Null with no sales or hidden costs.
+    # (net sales - net cost) / net sales. Null with no net sales or hidden costs.
     gross_margin: Decimal | None
 
 
 class OverviewDay(BaseModel):
     date: date
-    # Null for days later this week that haven't happened yet.
+    # Net sales. Null for days later this week that haven't happened yet.
     sales: Decimal | None
     last_week_sales: Decimal
 

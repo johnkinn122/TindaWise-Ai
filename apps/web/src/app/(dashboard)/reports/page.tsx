@@ -27,6 +27,7 @@ import {
   granularityLabels,
   parseReportParams,
   paymentLabels,
+  refundBreakdown,
   reportQuery,
   seriesSummary,
 } from "@/lib/reports";
@@ -77,7 +78,8 @@ async function Report({ searchParams }: { searchParams: PageProps<"/reports">["s
     throw error;
   }
 
-  const hasSales = report.summary.transactions > 0;
+  // A period with only refunds still has something to show (negative net sales).
+  const hasSales = report.summary.transactions > 0 || report.summary.refund_count > 0;
   const exportHref = (kind: ExportKind) => {
     const query = new URLSearchParams(reportQuery(params));
     query.set("kind", kind);
@@ -92,7 +94,8 @@ async function Report({ searchParams }: { searchParams: PageProps<"/reports">["s
       </a>
     </Button>
   );
-  const totalSalesCents = toCents(report.summary.sales);
+  const totalSalesCents = signedCents(report.summary.sales);
+  const breakdown = refundBreakdown(report);
 
   return (
     <>
@@ -104,6 +107,7 @@ async function Report({ searchParams }: { searchParams: PageProps<"/reports">["s
       </p>
 
       <KpiStrip kpis={buildReportKpis(report)} />
+      {breakdown && <p className="tabular -mt-2 text-[0.8125rem] text-muted-foreground">{breakdown}</p>}
 
       {!hasSales ? (
         <section aria-label="No sales" className="grid place-items-center rounded-lg border border-border bg-card px-6 py-14 text-center">
@@ -116,7 +120,7 @@ async function Report({ searchParams }: { searchParams: PageProps<"/reports">["s
           <div className="grid items-start gap-5 lg:grid-cols-12">
             <div className="min-w-0 lg:col-span-8">
               <SalesColumns
-                title={`Sales ${granularityLabels[report.granularity]}`}
+                title={`Net sales ${granularityLabels[report.granularity]}`}
                 rows={buildSeries(report)}
                 summary={seriesSummary(report)}
                 bucketName={{ day: "Day", week: "Week", month: "Month" }[report.granularity]}
@@ -126,24 +130,31 @@ async function Report({ searchParams }: { searchParams: PageProps<"/reports">["s
             <div className="grid min-w-0 gap-5 lg:col-span-4">
               <Panel title="Payment methods">
                 <BarList
-                  label="Sales by payment method"
+                  label="Net sales by payment method"
                   items={report.payments.map((payment) => ({
                     key: payment.method,
                     label: paymentLabels[payment.method],
-                    value: toCents(payment.sales),
-                    display: formatCents(toCents(payment.sales)),
-                    detail: `${formatPercent(toCents(payment.sales) / totalSalesCents, 0)} of sales · ${formatNumber(payment.transactions)} ${payment.transactions === 1 ? "sale" : "sales"}`,
+                    value: signedCents(payment.sales),
+                    display: formatCents(signedCents(payment.sales)),
+                    detail: [
+                      // A share of a zero or negative total means nothing, so it's left out.
+                      totalSalesCents > 0 && `${formatPercent(signedCents(payment.sales) / totalSalesCents, 0)} of sales`,
+                      `${formatNumber(payment.transactions)} ${payment.transactions === 1 ? "sale" : "sales"}`,
+                      toCents(payment.refunds) > 0 && `${peso(payment.refunds)} refunded`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · "),
                   }))}
                 />
               </Panel>
-              <Panel title="Sales by category" action={csv("categories", "CSV")}>
+              <Panel title="Net sales by category" action={csv("categories", "CSV")}>
                 <BarList
-                  label="Sales by category"
+                  label="Net sales by category"
                   items={report.categories.map((category) => ({
                     key: category.category_id ?? "none",
                     label: category.name,
-                    value: toCents(category.sales),
-                    display: formatCents(toCents(category.sales)),
+                    value: signedCents(category.sales),
+                    display: formatCents(signedCents(category.sales)),
                     detail: `Profit ${peso(category.gross_profit)} · ${formatNumber(category.quantity)} sold`,
                   }))}
                 />

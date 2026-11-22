@@ -166,12 +166,15 @@ def list_sales(
     org_id: uuid.UUID,
     *,
     cashier_id: uuid.UUID | None,
+    receipt_number: int | None = None,
     limit: int,
     offset: int,
 ) -> tuple[list[Sale], int]:
     query = select(Sale).where(Sale.organization_id == org_id)
     if cashier_id:
         query = query.where(Sale.created_by_user_id == cashier_id)
+    if receipt_number is not None:
+        query = query.where(Sale.receipt_number == receipt_number)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     rows = db.scalars(
         query.order_by(Sale.created_at.desc(), Sale.receipt_number.desc())

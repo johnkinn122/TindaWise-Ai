@@ -24,3 +24,7 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     last_po_number: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    # Last refund number used; same locking rule as receipts.
+    last_refund_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )

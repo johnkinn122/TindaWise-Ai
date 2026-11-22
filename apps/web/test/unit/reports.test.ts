@@ -3,9 +3,22 @@ import type { SalesReport } from "@/lib/api/types";
 import { percentChange } from "@/lib/compare";
 import { csvCell, toCsv } from "@/lib/csv";
 import { signedCents } from "@/lib/money";
-import { buildReportKpis, bucketLabels, formatPeriod, parseReportParams, reportCsv, reportQuery, seriesSummary } from "@/lib/reports";
+import {
+  buildReportKpis,
+  buildSeries,
+  bucketLabels,
+  formatPeriod,
+  parseReportParams,
+  refundBreakdown,
+  reportCsv,
+  reportQuery,
+  seriesSummary,
+} from "@/lib/reports";
 
-const summary = (sales: string, profit: string, transactions: number, margin: string | null) => ({
+const summary = (sales: string, profit: string, transactions: number, margin: string | null, refunds = "0.00", refundCount = 0) => ({
+  gross_sales: (signedCents(sales) / 100 + Number(refunds)).toFixed(2),
+  refunds,
+  refund_count: refundCount,
   sales,
   transactions,
   average_sale: null,
@@ -24,8 +37,8 @@ function report(overrides: Partial<SalesReport> = {}): SalesReport {
     summary: summary("1150.00", "250.00", 23, "0.2174"),
     previous_summary: summary("1000.00", "200.00", 25, "0.2000"),
     series: [
-      { start: "2026-11-21", sales: "150.00", transactions: 3, gross_profit: "30.00" },
-      { start: "2026-11-22", sales: "1000.00", transactions: 20, gross_profit: "220.00" },
+      { start: "2026-11-21", sales: "150.00", refunds: "0.00", transactions: 3, gross_profit: "30.00" },
+      { start: "2026-11-22", sales: "1000.00", refunds: "0.00", transactions: 20, gross_profit: "220.00" },
     ],
     products: [
       { product_id: "p", name: "=HYPERLINK(\"x\")", sku: "S-1", unit: "pcs", quantity: 3, sales: "30.00", gross_profit: "-5.00", gross_margin: "-0.1667" },
@@ -77,7 +90,7 @@ describe("labels", () => {
 describe("buildReportKpis", () => {
   it("compares every figure with the previous period", () => {
     expect(buildReportKpis(report()).map((k) => [k.label, k.value, k.change])).toEqual([
-      ["Sales", "₱1,150", "15% vs the previous 7 days"],
+      ["Net sales", "₱1,150", "15% vs the previous 7 days"],
       ["Gross profit", "₱250", "25% vs the previous 7 days"],
       ["Gross margin", "21.7%", "1.7 pts vs the previous 7 days"],
       ["Transactions", "23", "8% vs the previous 7 days"],
@@ -125,5 +138,36 @@ describe("CSV", () => {
     const { filename, body } = reportCsv(report(), "products");
     expect(filename).toBe("tindawise-products-2026-11-16-to-2026-11-22.csv");
     expect(body.split("\r\n")[1]).toBe(`"'=HYPERLINK(""x"")",S-1,pcs,3,30.00,-5.00,-16.7`);
+  });
+});
+
+describe("refunds", () => {
+  const withRefunds = report({
+    summary: summary("1050.00", "200.00", 23, "0.1905", "150.00", 2),
+    series: [
+      { start: "2026-11-21", sales: "-40.00", refunds: "190.00", transactions: 3, gross_profit: "-40.00" },
+      { start: "2026-11-22", sales: "1090.00", refunds: "0.00", transactions: 20, gross_profit: "240.00" },
+    ],
+  });
+
+  it("spells out gross minus refunds, only when there were refunds", () => {
+    expect(refundBreakdown(withRefunds)).toBe("Gross sales ₱1,200.00 − 2 refunds ₱150.00 = net sales ₱1,050.00");
+    expect(refundBreakdown(report())).toBeNull();
+  });
+
+  it("keeps negative days negative in the chart and the CSV", () => {
+    expect(buildSeries(withRefunds)[0]).toMatchObject({ sales: -40, refunds: 190, grossProfit: -40 });
+    const lines = reportCsv(withRefunds, "sales").body.split(String.fromCharCode(13, 10)); // CRLF
+    expect(lines[0].replace(String.fromCharCode(0xfeff), "")).toBe("Date,Net sales (PHP),Refunds (PHP),Transactions,Gross profit (PHP)");
+    expect(lines[1]).toBe("2026-11-21,-40.00,190.00,3,-40.00");
+  });
+
+  it("describes a period with only refunds", () => {
+    const refundsOnly = report({
+      summary: summary("-30.00", "-10.00", 0, null, "30.00", 1),
+      series: [{ start: "2026-11-22", sales: "-30.00", refunds: "30.00", transactions: 0, gross_profit: "-10.00" }],
+    });
+    expect(seriesSummary(refundsOnly)).toMatch(/: -₱30, refunds only\.$/);
+    expect(buildReportKpis(refundsOnly)[0]).toMatchObject({ label: "Net sales", value: "-₱30" });
   });
 });
