@@ -60,6 +60,9 @@ test("an e-wallet sale needs a reference number", async ({ page }) => {
   await page.goto("/sell");
   await scanBox(page).fill("CAN-001");
   await scanBox(page).press("Enter");
+  // Payment is disabled until the scanned item is in the cart. `force` (needed for the visually
+  // hidden radio) skips Playwright's enabled check, so wait for the cart first.
+  await expect(cart(page).getByText("1 item")).toBeVisible();
   await page.getByRole("radio", { name: "E-wallet" }).check({ force: true });
 
   const complete = page.getByRole("button", { name: /^Complete sale/ });
