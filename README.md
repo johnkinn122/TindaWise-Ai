@@ -42,7 +42,7 @@ and (planned) sales, suppliers, demand forecasting and an AI business copilot.
 | Web | Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS v4, shadcn/ui, Recharts |
 | API | FastAPI, Pydantic v2, SQLAlchemy 2.1, Alembic, Python 3.13 |
 | Database | PostgreSQL 17 + pgvector (Docker) |
-| ML | Python 3.13, pandas, NumPy (forecasting experiments; models planned) |
+| ML | Python 3.13, pandas, NumPy, LightGBM (forecasting experiments, not in the app yet) |
 | Tests | Vitest, Testing Library, Playwright + axe-core, pytest, Ruff, ESLint |
 | CI | GitHub Actions |
 
@@ -88,7 +88,8 @@ store at `/signup`.
 | `npm run test:api` | pytest on a real PostgreSQL test database |
 | `npm run lint:ml` | Ruff lint + format check for `services/ml` |
 | `npm run test:ml` | pytest for `services/ml` (no database; setup in `services/ml/README.md`) |
-| `npm run backtest:ml` | Score the forecasting baselines on synthetic history |
+| `npm run backtest:ml` | Score the baselines and LightGBM on synthetic history (about 10 s) |
+| `npm run tune:ml` | Score LightGBM settings on the validation period (a few minutes; not in CI) |
 
 CI runs all of them on every pull request.
 
@@ -97,7 +98,7 @@ CI runs all of them on every pull request.
 ```
 apps/web/          Next.js frontend
 services/api/      FastAPI backend
-services/ml/       Forecasting experiments (synthetic data, baselines, backtest)
+services/ml/       Forecasting experiments (synthetic data, baselines, LightGBM, backtest)
 infrastructure/    docker-compose for local services
 design-system/     Design rules (MASTER.md), tokens, visual preview
 docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
@@ -109,7 +110,8 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ real Overview · ✅ suppliers and purchase orders · ✅ reports · ✅ sales history and refunds ·
    ✅ inventory page (store-wide ledger)
 2. **Machine learning** (in progress): ✅ forecasting baselines and backtest on synthetic data ·
-   📋 LightGBM forecaster · 📋 real-data loader · 📋 stockout risk · 📋 anomaly detection
+   ✅ LightGBM forecaster (synthetic data) · 📋 real-data loader · 📋 stockout risk ·
+   📋 anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)
 

@@ -1,7 +1,8 @@
 // Runs ML tasks with the services/ml virtual environment, on any OS.
 //   npm run test:ml      → pytest
 //   npm run lint:ml      → ruff check + ruff format --check
-//   npm run backtest:ml  → score the forecasting baselines on synthetic history (extra args pass through)
+//   npm run backtest:ml  → score the forecasters on the test period of synthetic history (extra args pass through)
+//   npm run tune:ml      → score LightGBM settings on the validation period (a few minutes)
 import { join } from "node:path";
 import { pickTask, runInVenv } from "./python-venv.mjs";
 
@@ -15,6 +16,7 @@ const tasks = {
     ["-m", "ruff", "format", "--check", "."],
   ],
   backtest: [["-m", "tindawise_ml", "backtest", ...extra]],
+  tune: [["-m", "tindawise_ml", "tune", ...extra]],
 };
 
 runInVenv(mlDir, pickTask("ml.mjs", tasks, process.argv[2]));

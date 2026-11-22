@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from tindawise_ml.metrics import mae, rmse, wape
+from tindawise_ml.metrics import bias, mae, rmse, wape
 
 
 def test_hand_computed_values():
@@ -30,6 +30,16 @@ def test_rmse_punishes_one_big_miss_more_than_mae():
 
 def test_wape_is_undefined_when_nothing_sold():
     assert math.isnan(wape([0, 0], [1, 2]))
+    assert math.isnan(bias([0, 0], [1, 2]))
+
+
+def test_bias_tells_under_from_over_forecasting():
+    actual = [10, 10]
+    assert bias(actual, [8, 8]) == pytest.approx(-0.2)  # empty shelves
+    assert bias(actual, [12, 12]) == pytest.approx(0.2)  # cash tied up
+    # Same WAPE either way: WAPE alone can't tell these apart.
+    assert wape(actual, [8, 8]) == wape(actual, [12, 12])
+    assert bias(actual, [5, 15]) == 0
 
 
 def test_wape_handles_zero_days_that_would_break_mape():
@@ -37,7 +47,7 @@ def test_wape_handles_zero_days_that_would_break_mape():
     assert wape([0, 10], [2, 10]) == pytest.approx(0.2)
 
 
-@pytest.mark.parametrize("metric", [mae, rmse, wape])
+@pytest.mark.parametrize("metric", [mae, rmse, wape, bias])
 def test_rejects_bad_input(metric):
     with pytest.raises(ValueError, match="shape"):
         metric([1, 2], [1])

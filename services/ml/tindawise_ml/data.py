@@ -17,6 +17,8 @@ observe that column, so no model or baseline may read it.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pandas as pd
 
 REQUIRED_COLUMNS = ("date", "sku", "units_sold", "stockout")
@@ -59,3 +61,24 @@ def validate_demand_frame(frame: pd.DataFrame) -> None:
 def to_wide(frame: pd.DataFrame, column: str) -> pd.DataFrame:
     """Pivot one column to a dates x SKUs table (rows sorted by date, columns by SKU)."""
     return frame.pivot(index="date", columns="sku", values=column).sort_index().sort_index(axis=1)
+
+
+@dataclass(frozen=True)
+class History:
+    """What a forecaster may see: dates x SKUs tables of units sold and stockout flags, ending on
+    the forecast origin. Built by the backtest, which cuts it at the origin."""
+
+    sold: pd.DataFrame
+    stockout: pd.DataFrame
+
+    @classmethod
+    def from_frame(cls, frame: pd.DataFrame) -> History:
+        validate_demand_frame(frame)
+        return cls(sold=to_wide(frame, "units_sold"), stockout=to_wide(frame, "stockout"))
+
+    def until(self, origin: pd.Timestamp) -> History:
+        """Only the days up to and including `origin`."""
+        return History(sold=self.sold.loc[:origin], stockout=self.stockout.loc[:origin])
+
+    def __len__(self) -> int:
+        return len(self.sold)
