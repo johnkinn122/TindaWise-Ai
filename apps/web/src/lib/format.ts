@@ -36,3 +36,26 @@ export function formatNumber(value: number): string {
 export function formatPercent(ratio: number, fractionDigits = 1): string {
   return `${(ratio * 100).toFixed(fractionDigits)}%`;
 }
+
+const dateFormatter = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" });
+const dateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Manila",
+});
+const calendarDateFormatter = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "UTC" });
+
+/** "Nov 22, 2026" from a timestamp, in store time. */
+export function formatDate(iso: string): string {
+  return dateFormatter.format(new Date(iso));
+}
+
+/** "Nov 22, 2026, 9:45 AM" from a timestamp, in store time. */
+export function formatDateTime(iso: string): string {
+  return dateTimeFormatter.format(new Date(iso));
+}
+
+/** "Nov 30, 2026" from a date with no time ("2026-11-30"), so no time zone can shift the day. */
+export function formatCalendarDate(isoDate: string): string {
+  return calendarDateFormatter.format(new Date(`${isoDate}T00:00:00Z`));
+}

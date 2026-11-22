@@ -45,3 +45,12 @@ test("a cashier's overview shows their own sales and no costs", async ({ page })
   await expect(reorder.getByText("Estimated cost")).toHaveCount(0);
   await expect(reorder.getByRole("button", { name: "Create purchase order" })).toHaveCount(0);
 });
+
+test("a cashier can't see suppliers or purchase orders", async ({ page }) => {
+  await page.goto("/suppliers");
+  await expect(page.getByText("Only owners and managers can see suppliers and purchase orders.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Add supplier" })).toHaveCount(0);
+  await page.goto("/purchase-orders");
+  await expect(page.getByText("Only owners and managers can see purchase orders.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "New purchase order" })).toHaveCount(0);
+});

@@ -118,6 +118,50 @@ def suggested_quantity(stock_on_hand: int, reorder_level: int, sold_recently: in
     return max(target - stock_on_hand, 0)
 
 
+def attention_products(db: Session, org_id: uuid.UUID) -> list[Product]:
+    """Active products at or below their reorder level: out of stock first, then the lowest
+    share of the reorder level, then by name."""
+    return list(
+        db.scalars(
+            select(Product)
+            .where(
+                Product.organization_id == org_id,
+                Product.is_active.is_(True),
+                Product.stock_on_hand <= Product.reorder_level,
+            )
+            .order_by(
+                case((Product.stock_on_hand == 0, 0), else_=1),
+                cast(Product.stock_on_hand, Numeric) / func.nullif(Product.reorder_level, 0),
+                Product.name,
+            )
+        )
+    )
+
+
+@dataclass(frozen=True)
+class ReorderCandidate:
+    product: Product
+    sold_recently: int
+    quantity: int
+
+
+def reorder_candidates(
+    db: Session, org_id: uuid.UUID, attention: list[Product], now: datetime
+) -> list[ReorderCandidate]:
+    """The reorder rule applied to `attention` (same order). Shared by the Overview and by
+    "create a purchase order from suggestions", so both always agree."""
+    since = now - timedelta(days=REORDER_LOOKBACK_DAYS)
+    sold = _sold_recently(db, org_id, [p.id for p in attention], since)
+    candidates = []
+    for product in attention:
+        quantity = suggested_quantity(
+            product.stock_on_hand, product.reorder_level, sold.get(product.id, 0)
+        )
+        if quantity > 0:
+            candidates.append(ReorderCandidate(product, sold.get(product.id, 0), quantity))
+    return candidates
+
+
 def build_overview(
     db: Session,
     org: Organization,
@@ -149,45 +193,22 @@ def build_overview(
             )
         )
 
-    # Stock: out of stock first, then the lowest share of the reorder level, then by name.
-    attention = list(
-        db.scalars(
-            select(Product)
-            .where(
-                Product.organization_id == org.id,
-                Product.is_active.is_(True),
-                Product.stock_on_hand <= Product.reorder_level,
-            )
-            .order_by(
-                case((Product.stock_on_hand == 0, 0), else_=1),
-                cast(Product.stock_on_hand, Numeric) / func.nullif(Product.reorder_level, 0),
-                Product.name,
-            )
-        )
-    )
+    attention = attention_products(db, org.id)
     out_of_stock = sum(1 for p in attention if p.stock_on_hand == 0)
 
-    sold = _sold_recently(
-        db, org.id, [p.id for p in attention], now - timedelta(days=REORDER_LOOKBACK_DAYS)
-    )
-    reorder_lines = []
-    for product in attention:
-        quantity = suggested_quantity(
-            product.stock_on_hand, product.reorder_level, sold.get(product.id, 0)
+    reorder_lines = [
+        ReorderLine(
+            product_id=c.product.id,
+            name=c.product.name,
+            unit=c.product.unit,
+            stock_on_hand=c.product.stock_on_hand,
+            reorder_level=c.product.reorder_level,
+            sold_recently=c.sold_recently,
+            suggested_quantity=c.quantity,
+            unit_cost=c.product.cost if include_costs else None,
         )
-        if quantity > 0:
-            reorder_lines.append(
-                ReorderLine(
-                    product_id=product.id,
-                    name=product.name,
-                    unit=product.unit,
-                    stock_on_hand=product.stock_on_hand,
-                    reorder_level=product.reorder_level,
-                    sold_recently=sold.get(product.id, 0),
-                    suggested_quantity=quantity,
-                    unit_cost=product.cost if include_costs else None,
-                )
-            )
+        for c in reorder_candidates(db, org.id, attention, now)
+    ]
     shown = reorder_lines[:REORDER_LIMIT]
     # Priced from the shown lines only, so the total matches what is listed.
     estimated_cost = (

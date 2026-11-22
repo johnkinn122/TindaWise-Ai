@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Boxes,
+  ClipboardList,
   LayoutDashboard,
   MonitorSmartphone,
   Package,
@@ -21,5 +22,6 @@ export const navItems: NavItem[] = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/inventory", label: "Inventory", icon: Boxes },
   { href: "/suppliers", label: "Suppliers", icon: Truck },
+  { href: "/purchase-orders", label: "Purchase orders", icon: ClipboardList },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];

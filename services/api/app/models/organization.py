@@ -20,3 +20,7 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     last_receipt_number: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    # Last purchase order number used; same locking rule as receipts.
+    last_po_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )

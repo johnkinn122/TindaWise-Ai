@@ -130,7 +130,7 @@ describe("ReorderCard", () => {
     expect(screen.getByText("₱2,040.00")).toBeInTheDocument();
     expect(screen.getByText(/A simple rule, not a forecast/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "See products by stock" })).toHaveAttribute("href", "/products?sort=stock");
-    expect(screen.getByRole("button", { name: "Create purchase order" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create purchase order" })).toBeEnabled();
   });
 
   it("hides cost and ordering from cashiers", () => {
