@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { canManageTeam, getCurrentUser, roleLabels } from "@/lib/auth/current-user";
+import { canManageInventory, canManageTeam, getCurrentUser, roleLabels } from "@/lib/auth/current-user";
 import { MobileNav } from "./mobile-nav";
 import { UserMenu } from "./user-menu";
 
@@ -58,6 +58,7 @@ async function Account() {
       email={me.user.email}
       roleLabel={roleLabels[me.role]}
       canManageTeam={canManageTeam(me.role)}
+      canViewStore={canManageInventory(me.role)}
     />
   );
 }

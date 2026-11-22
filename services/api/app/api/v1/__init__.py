@@ -10,6 +10,7 @@ from app.api.v1 import (
     purchase_orders,
     reports,
     sales,
+    store,
     suppliers,
 )
 
@@ -24,3 +25,4 @@ api_router.include_router(suppliers.router)
 api_router.include_router(purchase_orders.router)
 api_router.include_router(reports.router)
 api_router.include_router(inventory.router)
+api_router.include_router(store.router)

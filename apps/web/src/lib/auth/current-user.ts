@@ -22,6 +22,8 @@ export const getCurrentUser = cache(() => apiFetch<CurrentUser>("/auth/me"));
 /** Owners and managers run products and stock; cashiers look things up (and will sell). */
 export const canManageInventory = (role: Role) => role === "owner" || role === "manager";
 export const canManageTeam = (role: Role) => role === "owner";
+/** Store settings: owners change them, managers can look (the API enforces both). */
+export const canEditStore = (role: Role) => role === "owner";
 
 export const roleLabels: Record<Role, string> = {
   owner: "Owner",

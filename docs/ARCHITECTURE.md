@@ -50,6 +50,7 @@ src/
 │       ├── purchase-orders/    Live: list (status tabs), /new, /[id] (actions, deliveries, history), /[id]/edit
 │       ├── reports/            Live: period presets + custom range, KPIs, charts, tables; export/route.ts (CSV)
 │       ├── sales/              Live: receipt list + search, /[id] (receipt, refunds, refund form), actions.ts
+│       ├── settings/           Live: team/ (owner), store/ (owner edits; managers view), actions.ts
 │       └── inventory/          Live: stock KPIs + store-wide ledger with filters (owners and managers)
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
@@ -237,7 +238,7 @@ beat the plain average on all six. Per active product, from the last 28 complete
 |---|---|
 | Rate | Average units sold per day on in-stock days (stockout days left out) |
 | Spread | Standard deviation of those days' sales |
-| Lead time | `lead_time_days` of the supplier on the product's latest non-cancelled purchase order; otherwise `organizations.default_lead_time_days` (3) |
+| Lead time | `lead_time_days` of the supplier on the product's latest non-cancelled purchase order; otherwise the store's default delivery time (Store settings, 3 days unless changed) |
 | On order | Σ (ordered − received) on draft, approved and partly received orders |
 | Position | Stock on hand + on order |
 | Suggest when | Position ≤ rate × lead time + buffer, where buffer = 1 × spread × √lead time |
@@ -311,6 +312,18 @@ and see stock levels on the product list instead.
 - The web page is a plain GET form: every view has a URL. Empty fields are dropped by a redirect,
   so a shared link only says what is filtered.
 
+### Store settings (`GET/PATCH /api/v1/store`)
+
+- Name, time zone and default delivery time. Managers read; only the owner changes them
+  (`CanEditStore`). The store always comes from the session.
+- **Time zone** must be an IANA name from the `tzdata` package (`Factory` and `localtime`
+  excluded). It decides where every store day starts (Overview, Reports, ledger filters,
+  reorder windows). Changing it rewrites nothing: past sales are regrouped into days in the new
+  zone the next time a figure is computed.
+- **Currency is read-only.** Every price, cost and receipt is stored in it, and converting
+  would need rules the app doesn't have.
+- PATCH is partial; `null` means "not sent", because every setting is required.
+
 ### Authentication and roles
 
 - **API-owned sessions.** `POST /auth/login` returns a random 256-bit token once; the database stores
@@ -328,6 +341,8 @@ and see stock levels on the product list instead.
   | View products, stock, history | ✅ | ✅ | ✅ |
   | Add / edit / archive products, adjust stock, add categories | ✅ | ✅ | — |
   | Manage the team | ✅ | — | — |
+  | See store settings | ✅ | ✅ | — |
+  | Change store settings (name, time zone, default delivery time) | ✅ | — | — |
 
 - **Audit:** every stock movement records `created_by_user_id`.
 - **Team:** owners add managers/cashiers with a temporary password. An email that already has an

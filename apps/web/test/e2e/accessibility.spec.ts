@@ -25,6 +25,7 @@ const pages = [
   "/purchase-orders/new",
   "/reports",
   "/settings/team",
+  "/settings/store",
 ];
 
 for (const theme of ["light", "dark"] as const) {
