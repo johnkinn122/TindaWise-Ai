@@ -107,6 +107,26 @@ export function SupplierForm({ action, supplier, submitLabel }: SupplierFormProp
             />
           )}
         </FormField>
+        <FormField
+          name="lead_time_days"
+          label="Delivery time (days)"
+          hint="Days from ordering to delivery. Used for reorder suggestions; leave blank for the store default (3 days)."
+          error={error("lead_time_days")}
+        >
+          {({ id, describedBy }) => (
+            <Input
+              id={id}
+              name="lead_time_days"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={2}
+              className="max-w-28"
+              defaultValue={value("lead_time_days")}
+              aria-invalid={Boolean(error("lead_time_days"))}
+              aria-describedby={describedBy}
+            />
+          )}
+        </FormField>
         <FormField name="notes" label="Notes" hint="Delivery days, payment terms, minimum order." error={error("notes")}>
           {({ id, describedBy }) => (
             <Textarea

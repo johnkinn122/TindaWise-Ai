@@ -4,7 +4,7 @@
  * Definitions of each figure live in services/api/app/services/overview.py.
  */
 
-import type { Overview, StockStatus, StockWatchItem } from "@/lib/api/types";
+import type { Overview, ReorderLine, StockStatus, StockWatchItem } from "@/lib/api/types";
 import { formatNumber, formatPercent, formatPesoWhole } from "@/lib/format";
 import { percentChange, pointChange } from "@/lib/compare";
 import { signedCents, toCents } from "@/lib/money";
@@ -157,4 +157,25 @@ export function buildStockItems(items: StockWatchItem[]): StockItem[] {
     onHand: item.stock_on_hand,
     status: item.stock_status,
   }));
+}
+
+/**
+ * Why a product is suggested, in one line: "3 on hand · 5 on order · about 2.5 sold a day ·
+ * 7-day delivery from Weekly truck". The rule itself is in services/api/app/services/reorder.py.
+ */
+export function reorderReason(line: ReorderLine): string {
+  const parts = [`${formatNumber(line.stock_on_hand)} on hand`];
+  if (line.on_order > 0) parts.push(`${formatNumber(line.on_order)} on order`);
+  if (line.basis === "reorder_level" || line.daily_rate === null) {
+    parts.push("little sales history yet, so up to twice the reorder level");
+    return parts.join(" · ");
+  }
+  parts.push(`about ${formatNumber(Number(line.daily_rate))} sold a day`);
+  const days = line.lead_time_days === 1 ? "1-day" : `${formatNumber(line.lead_time_days)}-day`;
+  if (line.lead_time_source === "supplier") {
+    parts.push(`${days} delivery from ${line.supplier_name ?? "the supplier"}`);
+  } else {
+    parts.push(`${days} delivery (store default)`);
+  }
+  return parts.join(" · ");
 }

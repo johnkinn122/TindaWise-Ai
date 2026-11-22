@@ -5,7 +5,7 @@ from sqlalchemy import update
 
 from app.db.session import SessionLocal
 from app.models import Organization, Role, Sale
-from app.services.overview import build_overview, suggested_quantity
+from app.services.overview import build_overview
 from tests.conftest import auth_headers
 
 # Saturday 21 Nov 2026, 10:00 in Manila (UTC+8). Its week runs Sun 15 to Sat 21 Nov.
@@ -123,11 +123,13 @@ def test_managers_see_the_whole_store(client, org, headers, make_product):
     assert body["today"]["transactions"] == 1
 
 
-def test_stock_to_watch_and_rule_based_reorder_quantities(client, headers, make_product):
-    # Fast seller: 13 in stock, 10 sold, so 3 left (level 5). Target max(2 x 5, 10) = 10 → 7.
+def test_stock_to_watch_and_reorder_suggestions(client, headers, make_product):
+    # Products created today have no sales history yet, so suggestions use the reorder level
+    # (the full rule is tested in test_reorder.py).
+    # Fast seller: 13 in stock, 10 sold, so 3 left (level 5): order up to 2 x 5 → 7.
     fast = make_product(name="Fast seller", initial_stock=13, reorder_level=5, cost="8.00")
     sell(client, headers, fast["id"], 10)
-    # Out of stock, never sold: target 2 x 5 = 10 → order 10.
+    # Out of stock, never sold: up to 2 x 5 → order 10.
     make_product(name="Bare shelf", initial_stock=0, reorder_level=5, cost="8.00")
     # No reorder level and no sales: watched (out of stock) but no number is made up for it.
     make_product(name="Unknown demand", initial_stock=0, reorder_level=0)
@@ -148,11 +150,11 @@ def test_stock_to_watch_and_rule_based_reorder_quantities(client, headers, make_
 
     lines = {line["name"]: line for line in body["reorder"]["lines"]}
     assert set(lines) == {"Bare shelf", "Fast seller"}
-    assert lines["Fast seller"]["sold_recently"] == 10
     assert lines["Fast seller"]["suggested_quantity"] == 7
     assert lines["Bare shelf"]["suggested_quantity"] == 10
+    assert {line["basis"] for line in lines.values()} == {"reorder_level"}
     assert body["reorder"]["total_count"] == 2
-    assert body["reorder"]["lookback_days"] == 14
+    assert (body["reorder"]["window_days"], body["reorder"]["cover_days"]) == (28, 10)
     assert body["reorder"]["estimated_cost"] == "136.00"  # (10 + 7) x ₱8.00
 
 
@@ -176,13 +178,6 @@ def test_other_stores_are_never_counted(client, headers, other_headers):
 
 def test_overview_needs_a_session(client):
     assert client.get("/api/v1/overview").status_code == 401
-
-
-def test_suggested_quantity_rule():
-    assert suggested_quantity(stock_on_hand=3, reorder_level=5, sold_recently=0) == 7
-    assert suggested_quantity(stock_on_hand=3, reorder_level=5, sold_recently=30) == 27
-    assert suggested_quantity(stock_on_hand=0, reorder_level=0, sold_recently=0) == 0
-    assert suggested_quantity(stock_on_hand=50, reorder_level=5, sold_recently=4) == 0
 
 
 def refund_one(client, headers, sale, restock=True):
@@ -218,21 +213,3 @@ def test_todays_sales_are_net_of_refunds(client, org, headers, make_product):
     refund_one(client, headers, owner_sale, restock=False)
     mine = client.get("/api/v1/overview", headers=cashier).json()
     assert mine["today"]["sales"] == "50.00"  # someone else's sale: not in "mine"
-
-
-def test_refunded_units_are_not_counted_as_recent_demand(client, headers, make_product):
-    # 10 in stock, 10 sold, 4 refunded and restocked → 4 left (level 4), recent demand 6.
-    fast = make_product(name="Fast seller", initial_stock=10, reorder_level=4)
-    sale = sell(client, headers, fast["id"], 10)
-    client.post(
-        f"/api/v1/sales/{sale['id']}/refunds",
-        json={
-            "lines": [{"sale_line_id": sale["lines"][0]["id"], "quantity": 4}],
-            "reason": "wrong_item",
-        },
-        headers=headers,
-    )
-    [line] = client.get("/api/v1/overview", headers=headers).json()["reorder"]["lines"]
-    assert line["sold_recently"] == 6
-    # max(2 x 4, 6) - 4 = 4. Counting the refunded units as demand would give max(8, 10) - 4 = 6.
-    assert line["suggested_quantity"] == 4

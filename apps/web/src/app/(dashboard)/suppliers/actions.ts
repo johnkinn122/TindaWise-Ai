@@ -14,15 +14,19 @@ function supplierPayload(formData: FormData) {
     phone: formText(formData, "phone"),
     email: formText(formData, "email"),
     notes: formText(formData, "notes"),
+    lead_time_days: formText(formData, "lead_time_days"),
   };
   // Blank optional fields are sent as null, which clears them when editing.
   const blankToNull = (value: string) => (value === "" ? null : value);
+  // A whole number goes as a number; anything else goes as typed so the API names the field.
+  const leadTime = values.lead_time_days;
   const payload = {
     name: values.name,
     contact_name: blankToNull(values.contact_name),
     phone: blankToNull(values.phone),
     email: blankToNull(values.email),
     notes: blankToNull(values.notes),
+    lead_time_days: leadTime === "" ? null : /^\d+$/.test(leadTime) ? Number(leadTime) : leadTime,
   };
   return { values, payload };
 }

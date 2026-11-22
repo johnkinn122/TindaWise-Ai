@@ -11,7 +11,11 @@ test("overview shows the store's real figures, not sample data", async ({ page }
   const reorder = page.getByRole("region", { name: "Reorder suggestions" });
   await expect(reorder.getByText("Coca-Cola 1.5L")).toBeVisible();
   await expect(reorder.getByText("Estimated cost")).toBeVisible();
-  await expect(reorder.getByText(/A simple rule, not a forecast/)).toBeVisible();
+  await expect(reorder.getByText(/covers the delivery time plus 10 days/)).toBeVisible();
+  // Coca-Cola has never been in stock, so there's no sales rate: it falls back to the reorder level.
+  const coke = reorder.getByRole("listitem").filter({ hasText: "Coca-Cola 1.5L" });
+  await expect(coke.getByText(/^0 on hand · little sales history yet/)).toBeVisible();
+  await expect(coke.getByText("24 btl")).toBeVisible();
 });
 
 test("the first Tab reaches the skip link, which jumps to main content", async ({ page }) => {

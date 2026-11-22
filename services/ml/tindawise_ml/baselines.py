@@ -62,6 +62,22 @@ def moving_average(history: History, horizon: int, window: int = 28) -> pd.DataF
     return pd.DataFrame(np.tile(mean, (horizon, 1)), index=index, columns=sold.columns)
 
 
+def in_stock_moving_average(history: History, horizon: int, window: int = 28) -> pd.DataFrame:
+    """Like `moving_average`, but averages only the days the product was in stock, so a stretch
+    of empty shelf doesn't read as "nobody wants it". A product out of stock for the whole
+    window falls back to the plain average (there's nothing else to go on)."""
+    sold = history.sold
+    index = future_index(sold, horizon)
+    _need(sold, window, f"{window}-day in-stock moving average")
+    values = sold.iloc[-window:].to_numpy(dtype=float)
+    in_stock = ~history.stockout.iloc[-window:].to_numpy()
+    days = in_stock.sum(axis=0)
+    plain = values.mean(axis=0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        kept = np.where(days > 0, (values * in_stock).sum(axis=0) / days, plain)
+    return pd.DataFrame(np.tile(kept, (horizon, 1)), index=index, columns=sold.columns)
+
+
 BASELINES: dict[str, Forecaster] = {
     "naive": naive,
     "seasonal_naive_7": seasonal_naive,

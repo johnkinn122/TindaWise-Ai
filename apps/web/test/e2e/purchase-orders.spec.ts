@@ -21,8 +21,16 @@ test.describe.serial("buying from a supplier", () => {
     await textbox(page, /Supplier name/).fill(supplierName);
     await textbox(page, "Contact person").fill("Ana Cruz");
     await textbox(page, "Phone").fill("0917 555 0101");
+    // Out of range first: the API's message lands on the field, and the input is kept.
+    await textbox(page, /Delivery time/).fill("61");
     await page.getByRole("button", { name: "Add supplier" }).click();
-    await expect(page.getByRole("link", { name: supplierName })).toBeVisible();
+    await expect(page.getByRole("alert").getByText("Some fields need attention.")).toBeVisible();
+    await expect(page.getByText(/less than or equal to 60/)).toBeVisible();
+    await expect(textbox(page, /Delivery time/)).toHaveValue("61");
+    await textbox(page, /Delivery time/).fill("2");
+    await page.getByRole("button", { name: "Add supplier" }).click();
+    const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: supplierName }) });
+    await expect(row.getByRole("cell", { name: "2 days" })).toBeVisible();
 
     await page.goto("/products/new");
     await textbox(page, /Product name/).fill(productName);

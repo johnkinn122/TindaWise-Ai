@@ -5,6 +5,43 @@ show. Commands are from `services/ml` with its virtual environment.
 
 ---
 
+## 2026-11-23 — In-stock average for the app's reorder rule (`feature/forecast-reorder`)
+
+### Why
+The app's new reorder rule needed a daily rate that doesn't treat an empty shelf as "no demand".
+A plain 28-day average falls after a stockout, so a product that's been out for a while would
+get a small suggestion or none. Averaging only the in-stock days avoids that. Before building on
+it, I ran it through the same simulation.
+
+### Setup
+As in the entry below: cover 10, safety 1, same test period, same seeds and delivery delays.
+`in_stock_moving_average` in `baselines.py`. Reproduce with
+`python -m tindawise_ml policies --cover 10 --safety 1 --baselines-only --seed N --lead-seed N`
+(seed 42 uses `--lead-seed 0`).
+
+### Results: lost units / orders / days of stock
+
+| seed | current rule | plain average | in-stock average |
+|---|---|---|---|
+| 42 | 169 / 134 / 6.8 | 94 / 147 / 6.7 | **61** / 149 / 7.0 |
+| 1 | 118 / 132 / 6.9 | 67 / 144 / 7.1 | **65** / 145 / 7.2 |
+| 2 | 151 / 135 / 6.7 | 76 / 147 / 6.8 | **69** / 144 / 7.1 |
+| 3 | 172 / 139 / 6.8 | 73 / 152 / 6.9 | **66** / 152 / 6.9 |
+| 4 | 153 / 138 / 6.7 | 56 / 144 / 7.2 | **41** / 145 / 7.3 |
+| 5 | 81 / 135 / 6.7 | 44 / 149 / 6.8 | **38** / 151 / 6.8 |
+
+### What this shows
+- The in-stock average lost fewer units than the plain average on all six datasets, with about
+  the same number of orders and 0.0 to 0.3 more days of stock. The app uses it.
+- Against the current rule, the in-stock version lost 45-73% fewer units.
+
+### Not covered
+- The app's extra rules: fewer than 7 in-stock days → reorder-level fallback, and subtracting
+  open orders instead of waiting for them. With 28 days of history and no overlapping orders, the
+  simulation never reaches either.
+
+---
+
 ## 2026-11-23 — Does forecasting make better orders? (`feature/ml-reorder-policy`)
 
 ### Why

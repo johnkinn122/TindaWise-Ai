@@ -42,6 +42,26 @@ def test_update_and_archive(client, headers):
     assert archived["items"][0]["is_active"] is False
 
 
+def test_lead_time_is_optional_and_editable(client, headers):
+    supplier = add(client, headers).json()
+    assert supplier["lead_time_days"] is None  # not given: the store default applies
+    url = f"{URL}/{supplier['id']}"
+    assert (
+        client.patch(url, json={"lead_time_days": 2}, headers=headers).json()["lead_time_days"] == 2
+    )
+    assert client.patch(url, json={"phone": "1"}, headers=headers).json()["lead_time_days"] == 2
+    cleared = client.patch(url, json={"lead_time_days": None}, headers=headers)
+    assert cleared.json()["lead_time_days"] is None
+    assert add(client, headers, name="Same day", lead_time_days=0).status_code == 201
+
+
+def test_lead_time_must_be_0_to_60_whole_days(client, headers):
+    for bad in (-1, 61, 2.5, "soon"):
+        response = add(client, headers, lead_time_days=bad)
+        assert response.status_code == 422, bad
+        assert "lead_time_days" in response.json()["error"]["fields"]
+
+
 def test_invalid_email_is_a_field_error(client, headers):
     response = add(client, headers, email="not-an-email")
     assert response.status_code == 422

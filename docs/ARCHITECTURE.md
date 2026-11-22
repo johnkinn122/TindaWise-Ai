@@ -95,9 +95,10 @@ src/
   submit time, so a double submit or network retry is applied once.
 - **AI actions stay inert until approval exists.** "Create purchase order" is disabled until the
   backend has purchase orders with a human-approval flow (claude.md §9).
-- **Rules are not dressed up as AI.** The Overview's reorder list is a fixed rule, so it uses a plain
-  panel, not the Resibo receipt look, which MASTER.md §7 reserves for AI output. There is no forecast
-  line on the sales chart until a model exists.
+- **Rules are not dressed up as AI.** The Overview's reorder list comes from an average of recent
+  in-stock sales with a safety buffer, not a model, so it uses a plain panel, not the Resibo
+  receipt look, which MASTER.md §7 reserves for AI output. Each line says why it's suggested.
+  There is no forecast line on the sales chart.
 
 ## Backend — `services/api`
 
@@ -120,7 +121,8 @@ app/
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
 │   ├── auth.py        sign-up, sign-in, sessions, team membership
 │   ├── sales.py       checkout: prices from the DB, all-or-nothing, receipt numbers
-│   ├── overview.py    dashboard figures: store-local days, comparisons, reorder rule
+│   ├── overview.py    dashboard figures: store-local days, comparisons
+│   ├── reorder.py     reorder suggestions: recent in-stock sales, lead time, open orders
 │   ├── suppliers.py   supplier list/search, unique names per store (case-insensitive), archive
 │   ├── purchase_orders.py  draft → approve → receive; locks, idempotency, latest-cost rule
 │   ├── reports.py     sales report: periods, buckets, products, categories, payments, purchases
@@ -222,7 +224,31 @@ spreadsheet formula injection: text cells starting with `= + - @` get a leading 
 | Gross margin | (net sales − net cost) / net sales; net cost gives back the cost of restocked refunded units. Products saved with cost 0 overstate it |
 | Week chart | Sunday to Saturday, local days; days that haven't happened are `null`, not 0 |
 | Stock to watch | Active products with stock ≤ reorder level; out of stock first, then lowest share of the level |
-| Reorder quantity | Rule, not a forecast: reach max(2 × reorder level, units sold − units refunded in the last 14 days). Omitted when that is 0 |
+| Reorder suggestion | See "Reorder suggestions" below. Omitted when the quantity is 0 |
+
+### Reorder suggestions (`app/services/reorder.py`)
+
+Chosen by simulation (`docs/ml/EXPERIMENTS.md`, 2026-11-23): at about the same orders and stock as
+the old fixed rule, it lost 45-73% fewer sales on six synthetic datasets, and the in-stock average
+beat the plain average on all six. Per active product, from the last 28 complete store days
+(the demand table in `demand_history.py`):
+
+| Figure | Definition |
+|---|---|
+| Rate | Average units sold per day on in-stock days (stockout days left out) |
+| Spread | Standard deviation of those days' sales |
+| Lead time | `lead_time_days` of the supplier on the product's latest non-cancelled purchase order; otherwise `organizations.default_lead_time_days` (3) |
+| On order | Σ (ordered − received) on draft, approved and partly received orders |
+| Position | Stock on hand + on order |
+| Suggest when | Position ≤ rate × lead time + buffer, where buffer = 1 × spread × √lead time |
+| Quantity | ⌈rate × (lead time + 10) + buffer − position⌉ |
+| Fallback | Fewer than 7 in-stock days (new products, or empty for weeks): when position ≤ reorder level, order up to 2 × reorder level |
+
+- The Overview card and "Create purchase order from suggestions" use the same function, so they
+  always agree. A draft made from the suggestions counts as on order, so the same items aren't
+  suggested again.
+- Units are counted as rung up: refunds don't lower the rate (the old rule subtracted them).
+- 7 in-stock days is a judgment call; the simulation always had 28 days of history.
 
 Cashiers get the same response shape with `sales_scope: "mine"` (their own sales only, matching the
 sales list), `costs_visible: false`, and every cost-derived field (`gross_margin`, `unit_cost`,
@@ -414,7 +440,6 @@ Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS
 
 | Planned next | Notes |
 |---|---|
-| Forecast-based reorder suggestions in the app | Replace the Overview's fixed rule; needs lead times and a place to store forecasts |
 | Anomaly detection | Unusual sales and stock movements |
 
 ## AI agents

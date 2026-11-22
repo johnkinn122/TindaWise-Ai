@@ -10,10 +10,8 @@ Definitions (keep in sync with docs/ARCHITECTURE.md):
   loss). Products saved with cost 0 make the margin look higher than it is.
 - "Needs attention" = active product with stock at or below its reorder level (out of stock
   included).
-- Reorder suggestion (a rule, not a forecast): order enough to reach
-  max(2 x reorder level, units sold in the last 14 days minus units refunded in that time).
-  It is shown only when that is above zero, so an item with no reorder level and no recent
-  sales gets no number.
+- Reorder suggestions come from recent in-stock sales and delivery time: see
+  `services/reorder.py` for the rule and why it was chosen.
 """
 
 import uuid
@@ -25,7 +23,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import Numeric, case, cast, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Organization, Product, Refund, RefundLine, Sale, SaleLine
+from app.models import Organization, Product, Refund, Sale
 from app.schemas.overview import (
     Overview,
     OverviewDay,
@@ -34,12 +32,12 @@ from app.schemas.overview import (
     SalesFigures,
     StockWatchItem,
 )
+from app.services.reorder import COVER_DAYS, WINDOW_DAYS, reorder_candidates
 
 CENT = Decimal("0.01")
 RATIO = Decimal("0.0001")
 ZERO = Decimal("0.00")
 
-REORDER_LOOKBACK_DAYS = 14
 WATCH_LIMIT = 5
 REORDER_LIMIT = 5
 
@@ -141,43 +139,6 @@ def _figures(totals: DayTotals, include_costs: bool) -> SalesFigures:
     )
 
 
-def _sold_recently(
-    db: Session, org_id: uuid.UUID, product_ids: list[uuid.UUID], since: datetime
-) -> dict[uuid.UUID, int]:
-    if not product_ids:
-        return {}
-    rows = db.execute(
-        select(SaleLine.product_id, func.sum(SaleLine.quantity))
-        .join(Sale, Sale.id == SaleLine.sale_id)
-        .where(
-            Sale.organization_id == org_id,
-            Sale.created_at >= since,
-            SaleLine.product_id.in_(product_ids),
-        )
-        .group_by(SaleLine.product_id)
-    )
-    sold = {product_id: int(quantity) for product_id, quantity in rows}
-    refunded = db.execute(
-        select(RefundLine.product_id, func.sum(RefundLine.quantity))
-        .join(Refund, Refund.id == RefundLine.refund_id)
-        .where(
-            Refund.organization_id == org_id,
-            Refund.created_at >= since,
-            RefundLine.product_id.in_(product_ids),
-        )
-        .group_by(RefundLine.product_id)
-    )
-    for product_id, quantity in refunded:
-        sold[product_id] = max(sold.get(product_id, 0) - int(quantity), 0)
-    return sold
-
-
-def suggested_quantity(stock_on_hand: int, reorder_level: int, sold_recently: int) -> int:
-    """Units to order so stock reaches max(2 x reorder level, recent sales). Never negative."""
-    target = max(2 * reorder_level, sold_recently)
-    return max(target - stock_on_hand, 0)
-
-
 def attention_products(db: Session, org_id: uuid.UUID) -> list[Product]:
     """Active products at or below their reorder level: out of stock first, then the lowest
     share of the reorder level, then by name."""
@@ -196,30 +157,6 @@ def attention_products(db: Session, org_id: uuid.UUID) -> list[Product]:
             )
         )
     )
-
-
-@dataclass(frozen=True)
-class ReorderCandidate:
-    product: Product
-    sold_recently: int
-    quantity: int
-
-
-def reorder_candidates(
-    db: Session, org_id: uuid.UUID, attention: list[Product], now: datetime
-) -> list[ReorderCandidate]:
-    """The reorder rule applied to `attention` (same order). Shared by the Overview and by
-    "create a purchase order from suggestions", so both always agree."""
-    since = now - timedelta(days=REORDER_LOOKBACK_DAYS)
-    sold = _sold_recently(db, org_id, [p.id for p in attention], since)
-    candidates = []
-    for product in attention:
-        quantity = suggested_quantity(
-            product.stock_on_hand, product.reorder_level, sold.get(product.id, 0)
-        )
-        if quantity > 0:
-            candidates.append(ReorderCandidate(product, sold.get(product.id, 0), quantity))
-    return candidates
 
 
 def build_overview(
@@ -262,12 +199,22 @@ def build_overview(
             name=c.product.name,
             unit=c.product.unit,
             stock_on_hand=c.product.stock_on_hand,
+            on_order=c.on_order,
             reorder_level=c.product.reorder_level,
-            sold_recently=c.sold_recently,
             suggested_quantity=c.quantity,
+            basis=c.basis,
+            daily_rate=(
+                Decimal(str(c.daily_rate)).quantize(Decimal("0.1"))
+                if c.daily_rate is not None
+                else None
+            ),
+            in_stock_days=c.in_stock_days,
+            lead_time_days=c.lead_time_days,
+            lead_time_source=c.lead_time_source,
+            supplier_name=c.supplier_name,
             unit_cost=c.product.cost if include_costs else None,
         )
-        for c in reorder_candidates(db, org.id, attention, now)
+        for c in reorder_candidates(db, org, now)
     ]
     shown = reorder_lines[:REORDER_LIMIT]
     # Priced from the shown lines only, so the total matches what is listed.
@@ -305,7 +252,8 @@ def build_overview(
         reorder=ReorderSuggestions(
             lines=shown,
             total_count=len(reorder_lines),
-            lookback_days=REORDER_LOOKBACK_DAYS,
+            window_days=WINDOW_DAYS,
+            cover_days=COVER_DAYS,
             estimated_cost=estimated_cost,
         ),
     )
