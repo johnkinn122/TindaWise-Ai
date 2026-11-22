@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
  * The store-wide stock ledger. On phones, date, who and source fold under the product so the
  * row keeps the two numbers that matter (change and balance) without scrolling sideways.
  */
-export function LedgerTable({ entries }: { entries: LedgerEntry[] }) {
+/** `timeZone`: the store's (organization.timezone); every time is shown in it. */
+export function LedgerTable({ entries, timeZone }: { entries: LedgerEntry[]; timeZone: string }) {
   return (
     <Table>
       <TableHeader>
@@ -34,7 +35,7 @@ export function LedgerTable({ entries }: { entries: LedgerEntry[] }) {
           return (
             <TableRow key={entry.id}>
               <TableCell className="hidden pl-4 align-top text-muted-foreground sm:table-cell sm:pl-5">
-                {formatDateTime(entry.created_at)}
+                {formatDateTime(entry.created_at, timeZone)}
                 {/* Below xl the "By" column is hidden (the sidebar leaves too little room), so who goes here. */}
                 {entry.created_by_name && <div className="text-xs xl:hidden">by {entry.created_by_name}</div>}
               </TableCell>
@@ -45,7 +46,7 @@ export function LedgerTable({ entries }: { entries: LedgerEntry[] }) {
                 <div className="text-xs text-muted-foreground">
                   {entry.sku}
                   <span className="md:hidden"> · {movementReasonLabels[entry.reason]}</span>
-                  <span className="sm:hidden"> · {formatDateTime(entry.created_at)}</span>
+                  <span className="sm:hidden"> · {formatDateTime(entry.created_at, timeZone)}</span>
                 </div>
                 {/* Sales, refunds and deliveries note their own number ("Receipt S-000052"); the source link already says that. */}
                 {entry.note && !entry.source && <div className="mt-0.5 text-xs text-muted-foreground">{entry.note}</div>}

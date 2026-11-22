@@ -101,7 +101,7 @@ async function OrderList({ searchParams }: { searchParams: PageProps<"/purchase-
       </nav>
       {result.items.length > 0 ? (
         <>
-          <PurchaseOrdersTable orders={result.items} />
+          <PurchaseOrdersTable orders={result.items} timeZone={me.organization.timezone} />
           <div className="border-t border-border">
             <Pagination
               page={page}

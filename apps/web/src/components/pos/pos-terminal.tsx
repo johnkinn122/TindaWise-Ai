@@ -39,7 +39,7 @@ async function fetchProducts(params: Record<string, string>, onSignedOut: () => 
   return { ok: response.ok, status: response.status, items: body.items ?? [], message: body.error?.message };
 }
 
-export function PosTerminal({ storeName }: { storeName: string }) {
+export function PosTerminal({ storeName, timeZone }: { storeName: string; timeZone: string }) {
   const router = useRouter();
   const signedOut = () => router.push("/login?reason=session&next=/sell");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -175,7 +175,7 @@ export function PosTerminal({ storeName }: { storeName: string }) {
   }
 
   if (sale) {
-    return <Receipt sale={sale} storeName={storeName} onNewSale={newSale} />;
+    return <Receipt sale={sale} storeName={storeName} timeZone={timeZone} onNewSale={newSale} />;
   }
 
   return (

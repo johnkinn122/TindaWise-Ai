@@ -69,7 +69,7 @@ async function Receipt({
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             <RefundStatusBadge status={sale.refund_status} />
-            {formatDateTime(sale.created_at)}
+            {formatDateTime(sale.created_at, me.organization.timezone)}
             {sale.cashier_name && <> · {sale.cashier_name}</>}
           </span>
         }
@@ -159,7 +159,7 @@ async function Receipt({
                       <p className="tabular font-semibold">−{peso(refund.total)}</p>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {formatDateTime(refund.created_at)}
+                      {formatDateTime(refund.created_at, me.organization.timezone)}
                       {refund.refunded_by_name && ` · ${refund.refunded_by_name}`} · paid back {payBackWording[refund.payment_method]}
                     </p>
                     <ul className="mt-1 text-muted-foreground">

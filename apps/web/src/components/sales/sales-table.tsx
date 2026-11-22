@@ -8,7 +8,16 @@ import { RefundStatusBadge } from "./refund-status-badge";
 
 const peso = (amount: string) => formatCents(toCents(amount));
 
-export function SalesTable({ sales, showCashier }: { sales: SaleSummary[]; showCashier: boolean }) {
+/** `timeZone`: the store's (organization.timezone). */
+export function SalesTable({
+  sales,
+  showCashier,
+  timeZone,
+}: {
+  sales: SaleSummary[];
+  showCashier: boolean;
+  timeZone: string;
+}) {
   return (
     <Table>
       <TableHeader>
@@ -34,7 +43,7 @@ export function SalesTable({ sales, showCashier }: { sales: SaleSummary[]; showC
               </Link>
               <div className="text-xs text-muted-foreground">
                 {sale.item_count === 1 ? "1 item" : `${formatNumber(sale.item_count)} items`}
-                <span className="sm:hidden"> · {formatDateTime(sale.created_at)}</span>
+                <span className="sm:hidden"> · {formatDateTime(sale.created_at, timeZone)}</span>
               </div>
               {sale.refund_status !== "none" && (
                 <div className="mt-1.5 sm:hidden">
@@ -42,7 +51,7 @@ export function SalesTable({ sales, showCashier }: { sales: SaleSummary[]; showC
                 </div>
               )}
             </TableCell>
-            <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDateTime(sale.created_at)}</TableCell>
+            <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDateTime(sale.created_at, timeZone)}</TableCell>
             {showCashier && (
               <TableCell className="hidden lg:table-cell">{sale.cashier_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
             )}

@@ -103,7 +103,7 @@ async function ProductDetail({ params }: { params: PageProps<"/products/[id]">["
           </Panel>
 
           <Panel title="Stock history">
-            <MovementHistory movements={movements.items} />
+            <MovementHistory movements={movements.items} timeZone={me.organization.timezone} />
             {(movements.total > movements.items.length || (canManage && movements.total > 0)) && (
               <p className="flex flex-wrap justify-between gap-x-4 gap-y-1 border-t border-border px-4 py-3 text-[0.8125rem] text-muted-foreground sm:px-5">
                 {movements.total > movements.items.length && (

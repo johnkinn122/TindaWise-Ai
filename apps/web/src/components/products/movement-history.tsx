@@ -1,16 +1,11 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { StockMovement } from "@/lib/api/types";
-import { formatNumber } from "@/lib/format";
+import { formatDateTime, formatNumber } from "@/lib/format";
 import { movementReasonLabels } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
-const dateFormatter = new Intl.DateTimeFormat("en-PH", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Manila",
-});
-
-export function MovementHistory({ movements }: { movements: StockMovement[] }) {
+/** `timeZone`: the store's (organization.timezone). */
+export function MovementHistory({ movements, timeZone }: { movements: StockMovement[]; timeZone: string }) {
   if (movements.length === 0) {
     return <p className="px-4 py-6 text-muted-foreground sm:px-5">No stock changes yet.</p>;
   }
@@ -28,7 +23,7 @@ export function MovementHistory({ movements }: { movements: StockMovement[] }) {
         {movements.map((movement) => (
           <TableRow key={movement.id}>
             <TableCell className="pl-4 text-muted-foreground sm:pl-5">
-              {dateFormatter.format(new Date(movement.created_at))}
+              {formatDateTime(movement.created_at, timeZone)}
             </TableCell>
             <TableCell className="whitespace-normal">
               {movementReasonLabels[movement.reason]}

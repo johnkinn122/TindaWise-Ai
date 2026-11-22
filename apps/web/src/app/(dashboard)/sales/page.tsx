@@ -106,7 +106,7 @@ async function SalesList({ searchParams }: { searchParams: PageProps<"/sales">["
       {searchForm}
       {result.items.length > 0 ? (
         <>
-          <SalesTable sales={result.items} showCashier={canManageInventory(me.role)} />
+          <SalesTable sales={result.items} showCashier={canManageInventory(me.role)} timeZone={me.organization.timezone} />
           <div className="border-t border-border">
             <Pagination
               page={page}

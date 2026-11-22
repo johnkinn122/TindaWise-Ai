@@ -320,6 +320,10 @@ and see stock levels on the product list instead.
   excluded). It decides where every store day starts (Overview, Reports, ledger filters,
   reorder windows). Changing it rewrites nothing: past sales are regrouped into days in the new
   zone the next time a figure is computed.
+- **Displayed times use the same zone.** `/auth/me` returns `organization.timezone`, and
+  `formatDate` / `formatDateTime` (`lib/format.ts`) require a zone argument, so no screen can
+  quietly fall back to a default. Calendar dates (report ranges, chart days) stay in UTC on
+  purpose: they are days, not moments.
 - **Currency is read-only.** Every price, cost and receipt is stored in it, and converting
   would need rules the app doesn't have.
 - PATCH is partial; `null` means "not sent", because every setting is required.

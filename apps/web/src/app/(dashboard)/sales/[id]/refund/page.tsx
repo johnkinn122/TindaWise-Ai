@@ -56,7 +56,7 @@ async function Refund({ params }: { params: PageProps<"/sales/[id]/refund">["par
   const header = (
     <PageHeader
       title={`Refund on ${sale.receipt_code}`}
-      description={`${formatDateTime(sale.created_at)} · ${formatCents(toCents(sale.total))} paid by ${paymentMethodLabels[sale.payment_method].toLowerCase()}${sale.cashier_name ? ` · ${sale.cashier_name}` : ""}`}
+      description={`${formatDateTime(sale.created_at, me.organization.timezone)} · ${formatCents(toCents(sale.total))} paid by ${paymentMethodLabels[sale.payment_method].toLowerCase()}${sale.cashier_name ? ` · ${sale.cashier_name}` : ""}`}
     />
   );
 

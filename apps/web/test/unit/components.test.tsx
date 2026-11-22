@@ -48,13 +48,14 @@ describe("ResiboCard", () => {
 
 describe("MovementHistory", () => {
   it("shows an empty message when there are no changes", () => {
-    render(<MovementHistory movements={[]} />);
+    render(<MovementHistory movements={[]} timeZone="Asia/Manila" />);
     expect(screen.getByText("No stock changes yet.")).toBeInTheDocument();
   });
 
   it("shows signed changes and balances", () => {
     render(
       <MovementHistory
+        timeZone="Asia/Manila"
         movements={[
           {
             id: "2",

@@ -4,6 +4,31 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Fix: times shown in the store's time zone (`fix/store-timezone-display`)
+
+### What was wrong
+Every displayed time used Manila time (`lib/format.ts`, the POS receipt and the product stock
+history each had `timeZone: "Asia/Manila"`). Once Store settings made the time zone editable,
+a store in another zone would see its figures grouped by its own days but every time shifted.
+I found this while building the activity log.
+
+### Fix
+- `/auth/me` returns `organization.timezone`.
+- `formatDate(iso, timeZone)` and `formatDateTime(iso, timeZone)` require the zone, with one
+  cached `Intl.DateTimeFormat` per style and zone. Making the argument required let the
+  compiler list every call site (11 calls in 7 files); each now passes the store's zone, as a
+  prop for the sales, ledger, purchase order and stock history tables and the POS receipt.
+- No `"Asia/Manila"` is left in the app code. Calendar-date formatters stay in UTC by design.
+
+### Verified
+- API pytest 232/232 (1 new: `/auth/me` carries the zone and follows a change).
+- Vitest 128/128 (2 new: one moment shown in Manila, Honolulu, London and New York; cached
+  formatters don't mix zones).
+- Playwright 94/94 (1 new): the store switches to Honolulu, then back to Manila, and the same
+  activity entry is shown exactly 18 hours apart. A `finally` block restores Manila.
+
+---
+
 ## 2026-11-23 — Audit log (`feature/audit-log`)
 
 ### Why

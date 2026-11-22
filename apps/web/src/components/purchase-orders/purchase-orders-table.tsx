@@ -5,7 +5,8 @@ import { formatCalendarDate, formatDate } from "@/lib/format";
 import { formatCents, toCents } from "@/lib/money";
 import { PurchaseOrderStatusBadge } from "./status-badge";
 
-export function PurchaseOrdersTable({ orders }: { orders: PurchaseOrderSummary[] }) {
+/** `timeZone`: the store's (organization.timezone). */
+export function PurchaseOrdersTable({ orders, timeZone }: { orders: PurchaseOrderSummary[]; timeZone: string }) {
   return (
     <Table>
       <TableHeader>
@@ -29,7 +30,7 @@ export function PurchaseOrdersTable({ orders }: { orders: PurchaseOrderSummary[]
                 {po.code}
               </Link>
               <div className="text-xs text-muted-foreground">
-                {po.line_count === 1 ? "1 product" : `${po.line_count} products`} · {formatDate(po.created_at)}
+                {po.line_count === 1 ? "1 product" : `${po.line_count} products`} · {formatDate(po.created_at, timeZone)}
               </div>
               <div className="mt-1 text-xs sm:hidden">{po.supplier?.name ?? "No supplier yet"}</div>
               <div className="mt-1.5 sm:hidden">

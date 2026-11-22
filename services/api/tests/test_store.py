@@ -113,3 +113,11 @@ def test_the_default_delivery_time_feeds_reorder_suggestions(client, headers, ma
     client.patch(URL, json={"default_lead_time_days": 6}, headers=headers)
     [line] = client.get("/api/v1/overview", headers=headers).json()["reorder"]["lines"]
     assert (line["lead_time_days"], line["lead_time_source"]) == (6, "store_default")
+
+
+def test_the_signed_in_view_carries_the_time_zone_for_displaying_times(client, headers):
+    me = client.get("/api/v1/auth/me", headers=headers).json()
+    assert me["organization"]["timezone"] == "Asia/Manila"
+    client.patch(URL, json={"timezone": "Europe/London"}, headers=headers)
+    me = client.get("/api/v1/auth/me", headers=headers).json()
+    assert me["organization"]["timezone"] == "Europe/London"

@@ -47,3 +47,33 @@ test("the owner renames the store and sets the default delivery time", async ({ 
     await expect(page.getByRole("status")).toHaveText("Store settings saved.");
   }
 });
+
+test("times on screen follow the store's time zone", async ({ page }) => {
+  const zone = page.getByRole("combobox", { name: "Time zone" });
+  const setZone = async (value: string) => {
+    await page.goto("/settings/store");
+    await zone.selectOption(value);
+    await save(page);
+    await expect(page.getByRole("status")).toHaveText("Store settings saved.");
+  };
+  // The change to Honolulu makes its own activity entry; read its time in both zones.
+  const entry = (nth: number) =>
+    page.getByRole("row").filter({ hasText: "Changed store settings: time zone" }).nth(nth).getByRole("cell").first();
+
+  try {
+    await setZone("Pacific/Honolulu");
+    await page.goto("/settings/activity?action=store.updated");
+    const inHonolulu = await entry(0).innerText();
+
+    await setZone("Asia/Manila");
+    await page.goto("/settings/activity?action=store.updated");
+    // Newest first: [0] is the change back to Manila, [1] the change to Honolulu read above.
+    const inManila = await entry(1).innerText();
+
+    // Same moment, shown 18 hours apart (Manila UTC+8, Honolulu UTC-10, no daylight saving).
+    const hours = (Date.parse(inManila.replace(/\s+/g, " ")) - Date.parse(inHonolulu.replace(/\s+/g, " "))) / 3_600_000;
+    expect(hours).toBe(18);
+  } finally {
+    await setZone("Asia/Manila");
+  }
+});
