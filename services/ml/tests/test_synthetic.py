@@ -66,6 +66,22 @@ def test_sales_never_exceed_demand_and_shortfalls_are_flagged(history):
     assert short["stockout"].all()
 
 
+def test_stock_columns_add_up_day_by_day(history):
+    """closing = previous closing + received - sold, so the history can be replayed as a ledger."""
+    for _, rows in history.groupby("sku"):
+        closing = rows["closing_stock"].to_numpy()
+        change = rows["received"].to_numpy() - rows["units_sold"].to_numpy()
+        assert (closing[1:] == closing[:-1] + change[1:]).all()
+        assert (closing >= 0).all()
+        assert (rows["stockout"] == (rows["closing_stock"] == 0)).all()
+
+
+def test_adding_stock_columns_did_not_change_the_history(history):
+    # Fingerprint of the seed-42 history from before `received`/`closing_stock` existed.
+    assert int(history["units_sold"].sum()) == 53_366
+    assert int(history["demand"].sum()) == 55_522
+
+
 def test_stockouts_are_occasional_not_constant(history):
     rate = history["stockout"].mean()
     assert 0.01 < rate < 0.10

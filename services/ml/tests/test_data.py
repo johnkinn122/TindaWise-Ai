@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from tindawise_ml.data import DemandFrameError, to_wide, validate_demand_frame
+from tindawise_ml.data import DemandFrameError, load_demand_csv, to_wide, validate_demand_frame
 
 
 def frame(**overrides) -> pd.DataFrame:
@@ -39,6 +39,49 @@ def test_a_valid_table_passes():
 def test_contract_violations_are_named(table, message):
     with pytest.raises(DemandFrameError, match=message):
         validate_demand_frame(table)
+
+
+def test_csv_round_trip(tmp_path):
+    path = tmp_path / "demand.csv"
+    original = frame().assign(extra=["x", "y", "z", "w"])
+    original.to_csv(path, index=False)
+    loaded = load_demand_csv(path)
+    assert loaded["date"].tolist() == sorted(original["date"].tolist())
+    assert loaded["stockout"].dtype == bool
+    assert loaded["units_sold"].dtype == "int64"
+    assert "extra" in loaded.columns
+    assert loaded.set_index(["sku", "date"])["units_sold"].to_dict() == (
+        original.set_index(["sku", "date"])["units_sold"].to_dict()
+    )
+
+
+def test_csv_reads_lowercase_booleans_and_skus_that_look_like_numbers(tmp_path):
+    path = tmp_path / "demand.csv"
+    path.write_text("date,sku,units_sold,stockout\n2025-01-01,007,1,false\n2025-01-02,007,0,true\n")
+    loaded = load_demand_csv(path)
+    assert loaded["sku"].tolist() == ["007", "007"]
+    assert loaded["stockout"].tolist() == [False, True]
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ("date,sku,units_sold\n2025-01-01,A,1\n", "missing columns"),
+        ("date,sku,units_sold,stockout\n01/02/2025,A,1,False\n", "YYYY-MM-DD"),
+        ("date,sku,units_sold,stockout\n2025-01-01,A,1,maybe\n", "True/False"),
+        ("date,sku,units_sold,stockout\n2025-01-01,A,1.5,False\n", "whole units"),
+        ("date,sku,units_sold,stockout\n2025-01-01,A,,False\n", "whole units"),
+        (
+            "date,sku,units_sold,stockout\n2025-01-01,A,1,False\n2025-01-03,A,1,False\n",
+            "missing days",
+        ),
+    ],
+)
+def test_csv_contract_violations_are_named(tmp_path, body, message):
+    path = tmp_path / "demand.csv"
+    path.write_text(body)
+    with pytest.raises(DemandFrameError, match=message):
+        load_demand_csv(path)
 
 
 def test_to_wide_is_dates_by_skus():

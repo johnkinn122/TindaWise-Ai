@@ -5,6 +5,40 @@ show. Commands are from `services/ml` with its virtual environment.
 
 ---
 
+## 2026-11-22 — Same pipeline through the database (`feature/ml-real-data`)
+
+### Why
+Before trusting a forecast on a real store, check that a table built from the database
+(sales, refunds, stock ledger, store time zone) means the same thing as the table the models
+were developed on.
+
+### Setup
+1. `python -m tindawise_ml generate --end 2026-11-21`: synthetic history ending yesterday
+   (2024-11-22 to 2026-11-21, seed 42).
+2. `python -m scripts.seed_sample_history`: written into the sample store as 21,667 receipts,
+   48,429 lines and 49,920 stock movements.
+3. `python -m scripts.export_demand`: the table rebuilt from the database.
+4. `python -m tindawise_ml backtest --csv export.csv` vs the same backtest on the generated table.
+
+### Results
+- **Identical tables:** 12,410 rows each, 0 differences in `units_sold`, 0 in `stockout`.
+- **Identical backtest scores** on both. Test period 2026-08-30 to 2026-11-21 (a different
+  window from the entries below, because this history ends later):
+
+| model | daily WAPE | 7-day WAPE | bias |
+|---|---|---|---|
+| lightgbm | 50.8% | 21.0% | −3.5% |
+| moving_average_28 | 51.4% | 22.1% | −4.3% |
+
+  LightGBM is ahead again, by less than on the December test period. This window has no
+  Christmas build-up for the moving average to lag behind.
+
+### What this does not show
+- Accuracy on a real store. The data that went in is still synthetic. This checks that the
+  path from the database is faithful, not that the model is.
+
+---
+
 ## 2026-11-22 — LightGBM forecaster (`feature/ml-lightgbm`)
 
 ### Model

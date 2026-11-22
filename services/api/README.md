@@ -40,6 +40,24 @@ Get a token from `POST /api/v1/auth/login`. The seed creates demo accounts for l
 .venv/Scripts/ruff format --check .
 ```
 
+## Forecasting data (services/ml)
+
+```bash
+# Export a store's daily demand table (one row per active product per store day) as CSV.
+# Defaults: from the first product's creation day to yesterday. The file holds sales volumes:
+# don't commit or share it (services/**/*.csv is git-ignored).
+.venv/Scripts/python -m scripts.export_demand --org <organization id> --out demand.csv
+
+# Opt-in, local only: a separate SAMPLE store with two years of synthetic sales (~4 minutes).
+# 1) from services/ml, a history that ends yesterday:
+#      .venv/Scripts/python -m tindawise_ml generate --end <yesterday> --out ../api/sample_history.csv
+# 2) from here:
+.venv/Scripts/python -m scripts.seed_sample_history --csv sample_history.csv
+# Sign in as sample-owner@example.com (password tindawise-demo). Refused in production.
+```
+
+The demand table is built by `app/services/demand_history.py`; rules in `docs/ARCHITECTURE.md`.
+
 ## Database changes
 
 ```bash
