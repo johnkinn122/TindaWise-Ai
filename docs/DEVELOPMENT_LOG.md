@@ -4,6 +4,54 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Store settings (`feature/store-settings`)
+
+### Decisions
+- Owner's choice: a store settings page first, before anomaly detection or the copilot.
+- Fields (the owner left this to me):
+  - Store name: editable.
+  - Default delivery time: editable. It closes the gap from the reorder PR.
+  - Time zone: editable, with a warning. It decides where "today" starts, and a store abroad or
+    set up with the wrong zone needs to fix it.
+  - Currency: read-only. Every price and receipt is stored in it, and conversion rules don't
+    exist.
+  - The owner edits; managers view; cashiers get a notice.
+
+### Built
+- API `GET /api/v1/store` (owners and managers) and `PATCH /api/v1/store` (owner, new
+  `CanEditStore`). Partial updates. The time zone is checked against `tzdata`, and the error
+  suggests an example. No migration: the columns already exist.
+- Web `/settings/store`: a form for the owner (name, a time zone select labelled with UTC
+  offsets, default delivery time, currency shown read-only); details for managers; a notice for
+  cashiers. A "Store settings" entry in the account menu for owners and managers. After saving,
+  the top bar shows the new name without a reload.
+- `lib/time-zones.ts`: zone options with offsets. The saved zone is always included, even when
+  the browser's list doesn't have it.
+
+### Verified
+- API pytest 214/214 (10 new): read, partial update with trimming, nulls and an empty body
+  change nothing, field errors (blank or long name, unknown zone, `Factory`, 61, −1), currency
+  can't be changed, manager 403 on PATCH, cashier and signed-out refused, each owner changes only
+  their own store, **the time zone moves where the Overview's week starts** (23:30 UTC Saturday
+  is Sunday in Manila and still Saturday in Honolulu), and **the default delivery time reaches
+  reorder suggestions**.
+- Vitest 121/121 (3 new: offsets including daylight saving and half-hour zones, sorted list, the
+  saved zone always present).
+- Playwright 90/90 (3 new: the owner flow from the account menu, with a field error, save, the
+  top bar updating, a reload, and the original values restored; cashier notice and no menu
+  entry; axe on `/settings/store` in both themes).
+- Manual: 390px dark and 1440px light, no horizontal overflow, no console errors.
+
+### Found and fixed
+- Node writes UTC's offset as "GMT+0", and other runtimes write "GMT". The unit test accepts
+  both.
+
+### Known issues / open items
+- No audit log of settings changes yet (CLAUDE.md §13 asks for one for sensitive operations).
+- The time zone list is long (about 400 entries) and has no search.
+
+---
+
 ## 2026-11-23 — Reorder suggestions from recent sales and delivery time (`feature/forecast-reorder`)
 
 ### Decisions (owner)

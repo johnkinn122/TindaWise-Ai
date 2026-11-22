@@ -205,6 +205,16 @@ export interface Overview {
   };
 }
 
+/** Store settings (GET/PATCH /store). Currency is shown but can't be changed. */
+export interface Store {
+  id: string;
+  name: string;
+  currency: string;
+  timezone: string;
+  default_lead_time_days: number;
+  updated_at: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;

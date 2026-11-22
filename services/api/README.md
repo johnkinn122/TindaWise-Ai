@@ -76,6 +76,7 @@ The demand table is built by `app/services/demand_history.py`; rules in `docs/AR
 | POST | `/api/v1/auth/logout` | Revoke the current session |
 | GET | `/api/v1/auth/me` | Current user, store and role |
 | GET / POST | `/api/v1/members` | List / add team members (owner only) |
+| GET / PATCH | `/api/v1/store` | Store settings: name, time zone, default delivery time (managers read, owner changes) |
 | GET | `/api/v1/categories` | List categories |
 | POST | `/api/v1/categories` | Create a category |
 | GET | `/api/v1/products` | List products: `q`, `category_id`, `status`, `include_archived`, `sort`, `limit`, `offset` |

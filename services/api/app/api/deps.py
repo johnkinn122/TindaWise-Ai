@@ -58,5 +58,7 @@ def can_see_costs(auth: AuthContext) -> bool:
 # Reusable permission levels.
 CanManageInventory = Annotated[AuthContext, Depends(require_roles(Role.OWNER, Role.MANAGER))]
 CanManageTeam = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
+# Store settings change how every day, report and reorder suggestion is computed: owner only.
+CanEditStore = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
 # Approving a purchase order commits the store's money, so only the owner may do it.
 CanApprovePurchases = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]

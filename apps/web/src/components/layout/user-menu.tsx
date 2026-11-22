@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Users } from "lucide-react";
+import { LogOut, Store, Users } from "lucide-react";
 import Link from "next/link";
 import { logoutAction } from "@/app/(auth)/actions";
 import {
@@ -17,6 +17,8 @@ interface UserMenuProps {
   email: string;
   roleLabel: string;
   canManageTeam: boolean;
+  /** Owners and managers; only owners can change the settings. */
+  canViewStore: boolean;
 }
 
 function initials(name: string) {
@@ -28,7 +30,7 @@ function initials(name: string) {
     .join("");
 }
 
-export function UserMenu({ fullName, email, roleLabel, canManageTeam }: UserMenuProps) {
+export function UserMenu({ fullName, email, roleLabel, canManageTeam, canViewStore }: UserMenuProps) {
   const short = initials(fullName);
   return (
     <DropdownMenu>
@@ -47,6 +49,14 @@ export function UserMenu({ fullName, email, roleLabel, canManageTeam }: UserMenu
           <div className="mt-1 text-xs text-muted-foreground">{roleLabel}</div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {canViewStore && (
+          <DropdownMenuItem asChild>
+            <Link href="/settings/store">
+              <Store aria-hidden="true" />
+              Store settings
+            </Link>
+          </DropdownMenuItem>
+        )}
         {canManageTeam && (
           <DropdownMenuItem asChild>
             <Link href="/settings/team">
@@ -56,7 +66,7 @@ export function UserMenu({ fullName, email, roleLabel, canManageTeam }: UserMenu
           </DropdownMenuItem>
         )}
         {/* Sign out sits apart from everything else (MASTER.md §5: separate destructive actions). */}
-        {canManageTeam && <DropdownMenuSeparator />}
+        {(canViewStore || canManageTeam) && <DropdownMenuSeparator />}
         <DropdownMenuItem onSelect={() => void logoutAction()}>
           <LogOut aria-hidden="true" />
           Sign out
