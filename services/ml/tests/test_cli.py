@@ -45,6 +45,15 @@ def test_start_and_end_together_are_refused(tmp_path, capsys):
         main(["generate", "--start", "2025-01-01", "--end", "2025-02-01", "--out", "x.csv"])
 
 
+def test_policies_compares_the_current_rule_with_forecast_policies(capsys):
+    argv = ["policies", "--days", "150", "--test-days", "14", "--cover", "7", "--baselines-only"]
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert "| current rule (app) |" in out
+    assert out.count("| moving_average_28, cover 7 d") == 2  # safety 0 and 1
+    assert "lightgbm" not in out
+
+
 def test_backtest_on_an_exported_csv_has_no_synthetic_extras(tmp_path, capsys):
     target = tmp_path / "export.csv"
     exported = generate_history(days=120)[["date", "sku", "units_sold", "stockout"]]

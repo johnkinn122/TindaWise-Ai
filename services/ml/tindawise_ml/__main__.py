@@ -17,13 +17,15 @@ from datetime import date, timedelta
 import pandas as pd
 
 from tindawise_ml.backtest import run_backtest, score, score_totals, tiling_origins
-from tindawise_ml.baselines import BASELINES
+from tindawise_ml.baselines import BASELINES, moving_average
 from tindawise_ml.data import load_demand_csv
 from tindawise_ml.gbm import make_lightgbm_forecaster
+from tindawise_ml.inventory import CurrentRule, ForecastPolicy, Policy, simulate
 from tindawise_ml.synthetic import (
     DEFAULT_DAYS,
     DEFAULT_SEED,
     DEFAULT_START,
+    DEMO_PROFILES,
     generate_history,
     oracle_forecasts,
 )
@@ -85,6 +87,34 @@ def _describe(history: pd.DataFrame, source: str | None) -> str:
     )
 
 
+def _compare_policies(history: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
+    start = history["date"].max() - pd.Timedelta(days=args.test_days - 1)
+    levels = {p.sku: p.reorder_level for p in DEMO_PROFILES}
+    forecasters = {"moving_average_28": moving_average}
+    if not args.baselines_only:
+        forecasters["lightgbm"] = make_lightgbm_forecaster()
+    candidates: list[Policy] = [CurrentRule()]
+    for name, forecaster in forecasters.items():
+        for cover in args.cover:
+            for safety in args.safety:
+                label = f"{name}, cover {cover} d, safety {safety:g}"
+                policy = ForecastPolicy(label, forecaster, cover_days=cover, safety=safety)
+                candidates.append(policy)
+    print(
+        f"\nReplaying {start.date()} to {history['date'].max().date()} "
+        f"({args.test_days} days), delivery delays seed {args.lead_seed}\n"
+    )
+    rows = [
+        simulate(history, p, start=start, reorder_level=levels, seed=args.lead_seed).summary()
+        for p in candidates
+    ]
+    table = pd.DataFrame(rows)
+    table["fill_rate"] = table["fill_rate"].map(lambda v: f"{v:.1%}")
+    table["stockout_days"] = table["stockout_days"].map(lambda v: f"{v:.1%}")
+    table["days_of_stock"] = table["days_of_stock"].map(lambda v: f"{v:.1f}")
+    return table
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tindawise_ml")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -107,6 +137,18 @@ def main(argv: list[str] | None = None) -> int:
     tune.add_argument("--period-days", type=int, default=84)
     tune.add_argument("--horizon", type=int, default=7)
 
+    policies = commands.add_parser(
+        "policies", help="replay the test period with reorder policies (synthetic data only)"
+    )
+    _history_args(policies, csv=False)
+    policies.add_argument("--test-days", type=int, default=84)
+    policies.add_argument("--cover", type=int, nargs="+", default=[7, 10, 14])
+    policies.add_argument("--safety", type=float, nargs="+", default=[0.0, 1.0])
+    policies.add_argument("--lead-seed", type=int, default=0, help="delivery delay draws")
+    policies.add_argument(
+        "--baselines-only", action="store_true", help="skip LightGBM (much faster)"
+    )
+
     args = parser.parse_args(argv)
     source = getattr(args, "csv", None)
     start = _first_day(args)
@@ -119,6 +161,15 @@ def main(argv: list[str] | None = None) -> int:
         history.to_csv(args.out, index=False)
         print(f"Wrote {len(history):,} rows to {args.out}")
         print(_describe(history, None))
+        return 0
+
+    if args.command == "policies":
+        print(_describe(history, None))
+        print(_markdown(_compare_policies(history, args)))
+        print(
+            "\nfill_rate: share of what customers wanted that was sold. days_of_stock: average"
+            " units on the shelf / average units wanted per day. orders: product orders placed."
+        )
         return 0
 
     if args.command == "tune":

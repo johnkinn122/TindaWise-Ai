@@ -35,12 +35,18 @@ No database needed.
 .venv/Scripts/python -m tindawise_ml generate --out history.csv
 .venv/Scripts/python -m tindawise_ml generate --end 2026-11-21 --out history.csv
 
+# Replay the test period with the app's current reorder rule and forecast-based ordering
+# (moving average and LightGBM; cover 7/10/14 days x safety 0/1). A few minutes;
+# --baselines-only skips LightGBM. Synthetic data only: it needs the true demand.
+.venv/Scripts/python -m tindawise_ml policies
+.venv/Scripts/python -m tindawise_ml policies --cover 10 --safety 1 --seed 3 --lead-seed 3
+
 # Run on a table exported from the database (services/api scripts.export_demand) instead.
 # No oracle row: that needs the generator's formula.
 .venv/Scripts/python -m tindawise_ml backtest --csv demand.csv
 ```
 
-From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run test:ml`, `npm run lint:ml`.
+From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run policies:ml`, `npm run test:ml`, `npm run lint:ml`.
 
 ## Layout
 
@@ -52,6 +58,7 @@ From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run test:ml`,
 | `features.py` | Feature rows for the direct multi-horizon model (only days up to the origin) |
 | `gbm.py` | The LightGBM forecaster and its tuned settings |
 | `tuning.py` | The settings grid, scored on the validation period only |
+| `inventory.py` | Reorder policy simulation: the app's current rule vs forecast-based ordering |
 | `metrics.py` | MAE, RMSE, WAPE, bias |
 | `backtest.py` | Rolling-origin backtest; daily and window-total scoring (stockout days skipped) |
-| `__main__.py` | The `generate`, `backtest` and `tune` commands |
+| `__main__.py` | The `generate`, `backtest`, `tune` and `policies` commands |
