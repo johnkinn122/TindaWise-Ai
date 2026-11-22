@@ -19,7 +19,8 @@
     "test:ml": "node scripts/ml.mjs test",
     "lint:ml": "node scripts/ml.mjs lint",
     "backtest:ml": "node scripts/ml.mjs backtest",
-    "tune:ml": "node scripts/ml.mjs tune"
+    "tune:ml": "node scripts/ml.mjs tune",
+    "policies:ml": "node scripts/ml.mjs policies"
   },
   "engines": {
     "node": ">=22"

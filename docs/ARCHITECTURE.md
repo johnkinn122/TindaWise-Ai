@@ -402,9 +402,19 @@ Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS
   generate → seed → export gives back the identical table (12,410 rows, 0 differences), and
   the backtest scores match.
 
+- **Reorder policy simulation** (`inventory.py`, synthetic only, because it needs true demand):
+  replays the test period day by day (morning deliveries → sales capped by the shelf →
+  evening orders arriving 1-3 days later) under the app's current rule or a forecast policy.
+  Every policy faces the same demand and the same delivery-delay draws. Policies see only
+  sales and stockout flags up to today, including the results of their own decisions. The
+  forecast policy reorders when stock ≤ forecast demand over the 3-day lead time + a buffer
+  (safety × spread of recent in-stock sales × √3), then orders up to lead + cover days of
+  forecast + buffer. Forecasts are refreshed weekly. It reports fill rate, lost units,
+  stockout days, days of stock and orders placed.
+
 | Planned next | Notes |
 |---|---|
-| Stockout risk and reorder quantities | Forecast vs stock on hand and lead time, replacing the fixed reorder rule |
+| Forecast-based reorder suggestions in the app | Replace the Overview's fixed rule; needs lead times and a place to store forecasts |
 | Anomaly detection | Unusual sales and stock movements |
 
 ## AI agents

@@ -5,6 +5,93 @@ show. Commands are from `services/ml` with its virtual environment.
 
 ---
 
+## 2026-11-23 — Does forecasting make better orders? (`feature/ml-reorder-policy`)
+
+### Why
+Forecast accuracy (WAPE) isn't what a store owner feels. Empty shelves, cash tied up in
+stock, and trips to the supplier are. This replays the test period with different reorder
+policies and measures those.
+
+### Setup
+- `python -m tindawise_ml policies` (`inventory.py`). Synthetic data, seed 42, replaying the
+  same 84-day test period as the forecasting entries (2025-10-08 to 2025-12-30). The shelf
+  starts at that morning's synthetic stock, with nothing on order.
+- Every policy faces the same customers (the synthetic *true* demand, including what an
+  empty shelf turned away) and the same random 1-3 day delivery delays.
+- **Current rule (app):** when stock ≤ reorder level, order up to max(2 × reorder level,
+  units sold in the last 14 days). That's the Overview's suggestion today.
+- **Forecast policy:** reorder when stock ≤ forecast demand over the 3-day lead time + a buffer
+  (safety × spread of recent in-stock daily sales × √3). Then order up to that plus `cover`
+  more days of forecast. Forecasts are refreshed weekly from the sales the policy itself
+  produced.
+- Nobody reorders a product that already has an order on the way.
+- The settings (cover 7/10/14 days × safety 0/1) were fixed before running. **All are reported;
+  none was chosen by its result.**
+
+### Results (seed 42)
+
+| policy | fill rate | lost units | stockout days | days of stock | orders |
+|---|---|---|---|---|---|
+| current rule (app) | 97.8% | 169 | 2.7% | 6.8 | 134 |
+| moving_average_28, cover 7, safety 0 | 97.6% | 184 | 5.2% | 4.4 | 193 |
+| moving_average_28, cover 7, safety 1 | 98.6% | 106 | 2.5% | 5.2 | 193 |
+| moving_average_28, cover 10, safety 0 | 97.9% | 160 | 3.4% | 5.9 | 146 |
+| moving_average_28, cover 10, safety 1 | 98.8% | 94 | 2.1% | 6.7 | 147 |
+| moving_average_28, cover 14, safety 0 | 98.7% | 100 | 3.4% | 7.5 | 108 |
+| moving_average_28, cover 14, safety 1 | 99.4% | 48 | 0.9% | 8.7 | 110 |
+| lightgbm, cover 7, safety 0 | 97.6% | 187 | 4.5% | 4.4 | 187 |
+| lightgbm, cover 7, safety 1 | 98.8% | 92 | 2.2% | 5.4 | 190 |
+| lightgbm, cover 10, safety 0 | 97.6% | 186 | 3.1% | 5.8 | 140 |
+| lightgbm, cover 10, safety 1 | 99.0% | 76 | 1.3% | 6.9 | 143 |
+| lightgbm, cover 14, safety 0 | 98.8% | 94 | 2.8% | 7.6 | 104 |
+| lightgbm, cover 14, safety 1 | 99.7% | 26 | 0.9% | 8.6 | 109 |
+
+Fill rate = units sold / units wanted. Days of stock = average units on the shelf / average
+units wanted per day.
+
+**Like for like:** cover 10 with safety 1 places about as many orders and holds about as much
+stock as the current rule. I picked it for that match, not for its fill rate. It ran on five
+more synthetic datasets, each with its own delivery delays (`--seed N --lead-seed N`):
+
+| seed | current rule: lost / orders / days of stock | moving average | lightgbm |
+|---|---|---|---|
+| 42 | 169 / 134 / 6.8 | 94 / 147 / 6.7 | 76 / 143 / 6.9 |
+| 1 | 118 / 132 / 6.9 | 67 / 144 / 7.1 | 69 / 145 / 7.1 |
+| 2 | 151 / 135 / 6.7 | 76 / 147 / 6.8 | 77 / 141 / 7.2 |
+| 3 | 172 / 139 / 6.8 | 73 / 152 / 6.9 | 71 / 147 / 7.0 |
+| 4 | 153 / 138 / 6.7 | 56 / 144 / 7.2 | 59 / 142 / 7.1 |
+| 5 | 81 / 135 / 6.7 | 44 / 149 / 6.8 | 36 / 145 / 6.9 |
+
+### What this shows
+- **Forecast-based ordering loses 40-65% fewer sales than the current rule** on all six
+  datasets. It does that with 3-10% more orders and about the same stock (−0.1 to +0.5 days).
+- **The policy matters more than the forecaster.** The moving average and LightGBM tie inside
+  this policy: each loses fewer units on three of the six datasets. LightGBM's better
+  7-day-total accuracy (1.4 to 2.6 WAPE points) doesn't turn into fewer lost sales here. The gain comes
+  from ordering against lead-time demand with a buffer sized to each product's noise, where
+  the current rule uses a fixed threshold.
+- **The buffer is the lever:** safety 1 instead of 0 cuts lost units by 40-70% at every cover
+  level, for about one extra day of stock.
+- There's no free lunch. Longer cover means fewer orders but more stock, and shorter cover means
+  the reverse. A store chooses where to sit. The current rule sits at one point without
+  saying so.
+
+### What this does not show
+- **Real stores.** Demand, delivery delays (1-3 days, uniform) and "never reorder while an
+  order is on the way" are all assumptions.
+- **The best fixed rule.** I didn't search for better reorder levels for the current rule. A
+  higher fixed reorder level would also lose less, at the cost of more stock.
+- **Money.** Orders, stock and lost sales aren't priced, so this doesn't say which point on
+  the trade-off is best for a given store.
+- **Order costs or minimum order sizes,** neither of which is modelled.
+
+### Next
+A forecast-based reorder suggestion in the app, starting with the moving average. It's as good
+as LightGBM here and needs no model infrastructure. That needs lead times per supplier or
+product, which the app doesn't record yet.
+
+---
+
 ## 2026-11-22 — Same pipeline through the database (`feature/ml-real-data`)
 
 ### Why

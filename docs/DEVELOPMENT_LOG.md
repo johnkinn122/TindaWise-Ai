@@ -4,6 +4,52 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — ML: reorder policy simulation (`feature/ml-reorder-policy`)
+
+### Built
+- `tindawise_ml/inventory.py`: a day-by-day replay (morning deliveries → sales capped by the
+  shelf → evening orders arriving 1-3 days later). Every policy faces the same true demand and
+  the same delivery-delay draws, and sees only sales and stockout flags up to today
+  (including its own results). Reports fill rate, lost units, stockout days, days of stock
+  and orders.
+- Policies: `CurrentRule` (the app's Overview rule, same formula) and `ForecastPolicy` (reorder
+  point = forecast lead-time demand + buffer; order up to lead + cover days; weekly forecast
+  refresh), with any forecaster.
+- `python -m tindawise_ml policies` / `npm run policies:ml`: the current rule vs moving-average
+  and LightGBM policies at cover 7/10/14 × safety 0/1.
+
+### Results (synthetic; full tables in `docs/ml/EXPERIMENTS.md`)
+- At about the same orders and stock as the current rule (cover 10, safety 1), forecast-based
+  ordering lost **42-63% fewer units** on all six datasets tried, with 3-10% more orders.
+- The moving average and LightGBM tied inside the policy (3 wins each). The improvement comes
+  from the policy, not the forecaster.
+- All 13 settings are reported. Cover 10 was chosen for the like-for-like comparison because
+  its orders and stock match the current rule.
+
+### Verified
+- ML pytest 102/102 (17 new): the app rule's formula and threshold, forecast policy reorder
+  point and quantity, buffer from in-stock days only, weekly refresh, horizon, conservation
+  (closing = previous + deliveries due − sales), sales ≤ demand and shelf, no reorder before the
+  delivery arrives, policies see today but not tomorrow and see their own sales, same inputs →
+  same outcome, never-ordering empties shelves, summary math, real data refused, CLI.
+- Mutation check: 3 deliberate simulator bugs. Two were caught at first. "Deliveries arrive a
+  day late" survived, so I added the conservation test, which catches it.
+- Ruff clean. The baseline and LightGBM numbers in EXPERIMENTS are unchanged.
+
+### Found and fixed
+- My first "no reorder while on order" test assumed orders can't be placed on consecutive days.
+  They can, when a 1-day delivery arrived in between. The test now checks the exact rule using
+  the recorded delivery delays.
+
+### Known issues / open items
+- Synthetic only: true demand is needed to count lost sales.
+- Lead times are assumed (1-3 days, uniform). The app doesn't record them yet.
+- I didn't search for a better fixed rule. Nothing is priced (orders, stock, lost sales).
+- The `policies` command takes about 3 minutes with LightGBM, so it's not in CI; the tests cover
+  the simulator.
+
+---
+
 ## 2026-11-22 — ML: demand table from the database + sample history store (`feature/ml-real-data`)
 
 ### Decisions (owner)

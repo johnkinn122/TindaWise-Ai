@@ -93,6 +93,7 @@ store at `/signup`.
 | `npm run test:ml` | pytest for `services/ml` (no database; setup in `services/ml/README.md`) |
 | `npm run backtest:ml` | Score the baselines and LightGBM on synthetic history (about 10 s) |
 | `npm run tune:ml` | Score LightGBM settings on the validation period (a few minutes; not in CI) |
+| `npm run policies:ml` | Replay the test period with the current reorder rule vs forecast-based ordering (a few minutes; not in CI) |
 
 CI runs all of them on every pull request.
 
@@ -113,7 +114,8 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ real Overview · ✅ suppliers and purchase orders · ✅ reports · ✅ sales history and refunds ·
    ✅ inventory page (store-wide ledger)
 2. **Machine learning** (in progress): ✅ forecasting baselines and backtest on synthetic data ·
-   ✅ LightGBM forecaster (synthetic data) · ✅ demand export from the database · 📋 stockout risk ·
+   ✅ LightGBM forecaster (synthetic data) · ✅ demand export from the database ·
+   ✅ reorder policy simulation (synthetic data) · 📋 forecast-based reorder suggestions in the app ·
    📋 anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)
