@@ -33,8 +33,8 @@ test("sidebar marks the current page", async ({ page }) => {
 });
 
 test("planned modules say they are planned", async ({ page }) => {
-  await page.goto("/reports");
-  await expect(page.getByRole("heading", { name: "Reports is planned" })).toBeVisible();
+  await page.goto("/inventory");
+  await expect(page.getByRole("heading", { name: "Inventory is planned" })).toBeVisible();
 });
 
 test("the top bar shows the signed-in store and person", async ({ page }) => {

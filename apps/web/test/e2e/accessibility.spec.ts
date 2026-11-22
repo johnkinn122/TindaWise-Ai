@@ -21,6 +21,7 @@ const pages = [
   "/suppliers/new",
   "/purchase-orders",
   "/purchase-orders/new",
+  "/reports",
   "/settings/team",
 ];
 

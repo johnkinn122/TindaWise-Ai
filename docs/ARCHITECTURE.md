@@ -7,9 +7,9 @@
 ```
 tindawise-ai/
 ├── apps/
-│   └── web/                 ✅ Next.js frontend: Overview, Products, Point of Sale, Suppliers, Purchase orders
+│   └── web/                 ✅ Next.js frontend: Overview, Products, Point of Sale, Suppliers, Purchase orders, Reports
 ├── services/
-│   ├── api/                 ✅ FastAPI backend: auth, products, inventory ledger, sales, overview, purchasing
+│   ├── api/                 ✅ FastAPI backend: auth, products, inventory ledger, sales, overview, purchasing, reports
 │   └── ml/                  📋 Forecasting + anomaly detection (scikit-learn, LightGBM)
 ├── packages/                📋 Shared TypeScript types and UI used across apps
 ├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); deploy planned
@@ -48,7 +48,8 @@ src/
 │       ├── sell/               Live: checkout screen, products/route.ts (lookup for the browser), actions.ts
 │       ├── suppliers/          Live: list, /new, /[id]/edit (archive there), actions.ts
 │       ├── purchase-orders/    Live: list (status tabs), /new, /[id] (actions, deliveries, history), /[id]/edit
-│       └── inventory|reports/page.tsx   Planned-module placeholders
+│       ├── reports/            Live: period presets + custom range, KPIs, charts, tables; export/route.ts (CSV)
+│       └── inventory/page.tsx  Planned-module placeholder
 ├── components/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
 │   ├── layout/                 App shell: sidebar, mobile drawer, top bar, nav, theme toggle
@@ -114,13 +115,14 @@ app/
 ├── api/          HTTP only: routes, query params, status codes. No business rules.
 │   ├── deps.py   DB session, signed-in session (Bearer token), role checks
 │   └── v1/       auth.py, members.py, categories.py, products.py, sales.py, overview.py,
-│                 suppliers.py, purchase_orders.py
+│                 suppliers.py, purchase_orders.py, reports.py
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
 │   ├── auth.py        sign-up, sign-in, sessions, team membership
 │   ├── sales.py       checkout: prices from the DB, all-or-nothing, receipt numbers
 │   ├── overview.py    dashboard figures: store-local days, comparisons, reorder rule
 │   ├── suppliers.py   supplier list/search, unique names per store (case-insensitive), archive
 │   ├── purchase_orders.py  draft → approve → receive; locks, idempotency, latest-cost rule
+│   ├── reports.py     sales report: periods, buckets, products, categories, payments, purchases
 │   ├── products.py    product + category rules, org-scoped queries
 │   └── inventory.py   the ONLY place stock changes
 ├── models/       SQLAlchemy tables
@@ -181,6 +183,25 @@ draft ──approve (owner)──▶ approved ──receive──▶ partially_r
 - **Numbers:** `PO-000001`, per store, from `organizations.last_po_number` under a row lock.
 - **From the Overview:** `POST /purchase-orders/from-reorder` drafts every current reorder
   suggestion at today's costs (the same `reorder_candidates` function the Overview uses).
+
+### Sales report (`GET /api/v1/reports/sales`)
+
+Owners and managers only (it is built on costs). Query: `preset` (today, yesterday, last_7_days,
+last_30_days, this_month, last_month) or `start` + `end` (store days, both included, at most
+366 days; a custom range wins), `product_sort` (sales, gross_profit, quantity), `top` (1–500).
+
+| Figure | Definition |
+|---|---|
+| Period | Calendar days in the store's time zone, resolved by the API (so "today" is the store's day) |
+| Comparison | The same number of days, ending the day before the period starts |
+| Sales / gross profit / margin | Sale totals; sales − cost copied onto each sale line; profit ÷ sales |
+| Buckets | By day up to 31 days, by week (Sunday start) up to 182, by month beyond; zero-filled |
+| Category | The product's category **today** (sales don't record it) |
+| Purchases | Stock received on purchase orders in the period × the order line's unit cost |
+
+The web page reads it once per view; every panel shows the same slice. CSV exports run through
+`/reports/export` (a Next.js route handler with the signed-in session), which protects against
+spreadsheet formula injection: text cells starting with `= + - @` get a leading apostrophe.
 
 ### Overview figures (`GET /api/v1/overview`)
 

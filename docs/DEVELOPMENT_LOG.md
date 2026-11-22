@@ -4,6 +4,58 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-22 — Reports (`feature/reports`)
+
+### Built
+- API `GET /api/v1/reports/sales` (owners and managers): a period from a preset or a custom
+  range (resolved in the store's time zone), compared with the previous period of equal length;
+  totals, zero-filled buckets by day/week/month, top products (sortable, `top` up to 500),
+  categories, payment methods, and purchases received per supplier.
+- The Overview's daily-totals query is now shared (`daily_totals`), so both screens sum sales
+  the same way.
+- Web `/reports`: preset links and a custom-range GET form (every view has a URL), KPI strip vs
+  the previous period, sales columns with a table view, payment and category bar lists, sortable
+  top-products table (`aria-sort`), purchases table, and CSV downloads through
+  `/reports/export`.
+- Shared helpers: `lib/compare.ts` (the "% vs …" wording, now used by the Overview too),
+  `lib/chart.ts` (axis ticks), `lib/csv.ts` (formula-injection guard), `signedCents` for losses.
+
+### Design notes
+- Followed MASTER.md plus the dataviz and ui-ux-pro-max guidance: each chart shows one measure in
+  one hue (chart-1), columns capped at 24px with 4px rounded tops, hairline grid, tooltips that
+  lead with the value, a text summary and a table view for the chart, filters in one row above
+  everything they scope.
+- **Palette check (not changed, needs a decision):** the dataviz validator fails the two-series
+  chart palette (chart-1 + chart-2): in light mode `#0F5C4D` is outside the lightness band and
+  below the chroma floor; in dark mode `#4FBFA3` vs `#7FA6E8` is ΔE 14.9, just under the
+  normal-vision floor of 15. Single-hue marks pass contrast. This affects the Overview's
+  two-line chart; Reports avoids it by using one hue per chart.
+
+### Verified
+- pytest 113/113 (21 new: presets, previous period, custom-range errors, granularity, store-day
+  boundary, zero-filled buckets, week/month grouping, product sort and limit, categories incl.
+  "No category", payment methods, purchases by supplier, defaults, cashier 403, isolation).
+- Vitest 88/88 (11 new: URL parsing, links, labels, KPI wording incl. a loss, CSV guard).
+- Playwright 72/72, twice: sell → today's report, sort announced via `aria-sort`, chart table
+  view, CSV download contents, invalid custom range explained, cashier blocked (page and export
+  403), axe on `/reports` in both themes.
+- Manual: 1440px light, 390px dark, cashier; no horizontal overflow, no console errors.
+
+### Found and fixed
+- On phones the preset bar widened the whole page by 197px: a grid item's minimum width follows
+  its content. `min-w-0` on the filter row lets the presets scroll inside their own bar.
+- Gross profit can be negative; the first KPI code dropped the sign. Added `signedCents`, and
+  "% change" is now measured against the size of the earlier value.
+- The Next.js dev server served a stale module after an edit (file watching on OneDrive). Restarting
+  `npm run dev:web` fixed it.
+
+### Known issues / open items
+- Category is today's category, not the one at the time of sale.
+- No refunds or voids yet, so the report shows gross sales only.
+- One report request per view; very large stores may want caching later.
+
+---
+
 ## 2026-11-22 — Suppliers and purchase orders (`feature/suppliers-purchase-orders`, based on `fix/hide-cost-from-cashiers`)
 
 ### Decisions (owner)

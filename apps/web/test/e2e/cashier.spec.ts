@@ -54,3 +54,10 @@ test("a cashier can't see suppliers or purchase orders", async ({ page }) => {
   await expect(page.getByText("Only owners and managers can see purchase orders.")).toBeVisible();
   await expect(page.getByRole("link", { name: "New purchase order" })).toHaveCount(0);
 });
+
+test("a cashier can't open reports", async ({ page }) => {
+  await page.goto("/reports");
+  await expect(page.getByText("Reports show costs and profit, so only owners and managers can see them.")).toBeVisible();
+  const response = await page.request.get("/reports/export?kind=products");
+  expect(response.status()).toBe(403);
+});

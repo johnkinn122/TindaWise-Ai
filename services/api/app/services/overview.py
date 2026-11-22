@@ -42,25 +42,25 @@ REORDER_LIMIT = 5
 
 
 @dataclass(frozen=True)
-class _DayTotals:
+class DayTotals:
     sales: Decimal = ZERO
     transactions: int = 0
     cost: Decimal = ZERO
 
 
-def _week_start(day: date) -> date:
+def week_start(day: date) -> date:
     """The Sunday on or before `day`."""
     return day - timedelta(days=(day.weekday() + 1) % 7)
 
 
-def _daily_totals(
+def daily_totals(
     db: Session,
     org_id: uuid.UUID,
     zone: str,
     start: datetime,
     end: datetime,
     cashier_id: uuid.UUID | None,
-) -> dict[date, _DayTotals]:
+) -> dict[date, DayTotals]:
     # Postgres converts each sale's timestamp to the store's local date. Grouping happens in an
     # outer query so the time zone is passed once.
     filters = [Sale.organization_id == org_id, Sale.created_at >= start, Sale.created_at < end]
@@ -80,10 +80,10 @@ def _daily_totals(
             local.c.day, func.sum(local.c.total), func.count(), func.sum(local.c.cost_total)
         ).group_by(local.c.day)
     )
-    return {day: _DayTotals(sales, count, cost) for day, sales, count, cost in rows}
+    return {day: DayTotals(sales, count, cost) for day, sales, count, cost in rows}
 
 
-def _figures(totals: _DayTotals, include_costs: bool) -> SalesFigures:
+def _figures(totals: DayTotals, include_costs: bool) -> SalesFigures:
     margin = None
     if include_costs and totals.sales > 0:
         margin = ((totals.sales - totals.cost) / totals.sales).quantize(RATIO)
@@ -174,13 +174,13 @@ def build_overview(
     now = now or datetime.now(ZoneInfo("UTC"))
     zone = ZoneInfo(org.timezone)
     today = now.astimezone(zone).date()
-    this_week = _week_start(today)
+    this_week = week_start(today)
     last_week = this_week - timedelta(days=7)
 
     window_start = datetime.combine(last_week, time.min, tzinfo=zone)
     window_end = datetime.combine(this_week + timedelta(days=7), time.min, tzinfo=zone)
-    daily = _daily_totals(db, org.id, org.timezone, window_start, window_end, cashier_id)
-    empty = _DayTotals()
+    daily = daily_totals(db, org.id, org.timezone, window_start, window_end, cashier_id)
+    empty = DayTotals()
 
     week = []
     for offset in range(7):

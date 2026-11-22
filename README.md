@@ -4,8 +4,8 @@ A retail operations platform for small and medium stores in the Philippines: pro
 and (planned) sales, suppliers, demand forecasting and an AI business copilot.
 
 > **Status:** early development. Built so far: sign-in with owner/manager/cashier roles,
-> Products, Point of Sale, an Overview dashboard on real sales, suppliers and purchase orders,
-> and an inventory ledger that prevents overselling. Everything else is planned; see [Roadmap](#roadmap).
+> Products, Point of Sale, an Overview dashboard, suppliers and purchase orders, Reports, and an
+> inventory ledger that prevents overselling. Everything else is planned; see [Roadmap](#roadmap).
 
 ## What works today
 
@@ -20,6 +20,9 @@ and (planned) sales, suppliers, demand forecasting and an AI business copilot.
 - **Suppliers and purchase orders:** draft an order (or one click from the Overview's reorder
   suggestions), the owner approves it, then record deliveries as they arrive, including partial
   deliveries and closing an order short. Receiving adds stock and updates each product's cost.
+- **Reports:** any period (presets or a custom range) against the period before: sales, gross
+  profit and margin, sales by day/week/month, top products, categories, payment methods and
+  purchases by supplier, with CSV downloads. Owners and managers only.
 - **Products:** search, filter by stock status and category, sort, paginate, add, edit, archive.
 - **Inventory:** stock adjustments with reasons (received, returned, damaged, sold, count correction)
   and a full stock history per product.
@@ -92,8 +95,8 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md
 
 ## Roadmap
 
-1. **Core platform** (in progress): ✅ products and inventory · ✅ sign-in and roles ·
-   ✅ point of sale · ✅ real Overview · ✅ suppliers and purchase orders · 📋 reports
+1. **Core platform**: ✅ products and inventory · ✅ sign-in and roles · ✅ point of sale ·
+   ✅ real Overview · ✅ suppliers and purchase orders · ✅ reports · 📋 inventory page (store-wide ledger)
 2. **Machine learning** (planned): demand forecasting, stockout risk, anomaly detection
 3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
 4. **Deployment** (planned)
