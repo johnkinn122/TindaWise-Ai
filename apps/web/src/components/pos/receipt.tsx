@@ -4,19 +4,25 @@ import { Printer } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type { Sale } from "@/lib/api/types";
+import { formatDateTime } from "@/lib/format";
 import { formatCents, toCents } from "@/lib/money";
-
-const dateFormatter = new Intl.DateTimeFormat("en-PH", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Manila",
-});
 
 /**
  * The customer's receipt. Plain on purpose: the zig-zag "Resibo" style is reserved for AI
  * suggestions (MASTER.md §7). Printing shows only this block (see .print-receipt in globals.css).
  */
-export function Receipt({ sale, storeName, onNewSale }: { sale: Sale; storeName: string; onNewSale: () => void }) {
+export function Receipt({
+  sale,
+  storeName,
+  timeZone,
+  onNewSale,
+}: {
+  sale: Sale;
+  storeName: string;
+  /** The store's time zone: the receipt shows the sale's local time. */
+  timeZone: string;
+  onNewSale: () => void;
+}) {
   const newSaleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => newSaleRef.current?.focus(), []);
 
@@ -32,7 +38,7 @@ export function Receipt({ sale, storeName, onNewSale }: { sale: Sale; storeName:
             Receipt {sale.receipt_code}
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {dateFormatter.format(new Date(sale.created_at))}
+            {formatDateTime(sale.created_at, timeZone)}
             {sale.cashier_name && <> · Cashier: {sale.cashier_name}</>}
           </p>
         </header>

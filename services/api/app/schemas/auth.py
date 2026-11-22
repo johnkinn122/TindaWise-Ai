@@ -43,6 +43,8 @@ class OrganizationRead(ORMModel):
     id: uuid.UUID
     name: str
     currency: str
+    # IANA zone the app shows times in (and where each store day starts).
+    timezone: str
 
 
 class Me(BaseModel):

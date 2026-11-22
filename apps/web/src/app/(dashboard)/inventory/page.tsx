@@ -98,7 +98,7 @@ async function Inventory({ searchParams }: { searchParams: PageProps<"/inventory
         <LedgerFilters params={params} people={summary.people} productName={name} />
         {ledger.items.length > 0 ? (
           <>
-            <LedgerTable entries={ledger.items} />
+            <LedgerTable entries={ledger.items} timeZone={me.organization.timezone} />
             <div className="border-t border-border">
               <Pagination
                 page={params.page}

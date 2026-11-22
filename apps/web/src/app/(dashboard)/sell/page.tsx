@@ -20,10 +20,10 @@ export default function SellPage() {
   );
 }
 
-/** Every role can sell, so the only thing read here is the store name for the receipt. */
+/** Every role can sell, so the only things read here are the store's name and time zone for the receipt. */
 async function SellScreen() {
   const me = await getCurrentUser();
-  return <PosTerminal storeName={me.organization.name} />;
+  return <PosTerminal storeName={me.organization.name} timeZone={me.organization.timezone} />;
 }
 
 function SellSkeleton() {

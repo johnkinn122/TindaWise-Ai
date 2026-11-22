@@ -155,7 +155,7 @@ async function Order({ params }: { params: PageProps<"/purchase-orders/[id]">["p
                 {po.receipts.map((receipt) => (
                   <li key={receipt.id} className="px-4 py-3 text-sm sm:px-5">
                     <p className="font-medium">
-                      {formatDateTime(receipt.created_at)}
+                      {formatDateTime(receipt.created_at, me.organization.timezone)}
                       {receipt.received_by && <span className="font-normal text-muted-foreground"> · {receipt.received_by}</span>}
                     </p>
                     <ul className="mt-1 text-muted-foreground">
@@ -188,7 +188,7 @@ async function Order({ params }: { params: PageProps<"/purchase-orders/[id]">["p
                 <li key={`${event.action}-${index}`}>
                   <p className="font-medium">{historyLabels[event.action]}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDateTime(event.at)}
+                    {formatDateTime(event.at, me.organization.timezone)}
                     {event.by && ` · ${event.by}`}
                   </p>
                 </li>

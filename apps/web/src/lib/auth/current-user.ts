@@ -7,7 +7,8 @@ export type Role = "owner" | "manager" | "cashier";
 
 export interface CurrentUser {
   user: { id: string; email: string; full_name: string };
-  organization: { id: string; name: string; currency: string };
+  /** `timezone`: show every time in it (Store settings). */
+  organization: { id: string; name: string; currency: string; timezone: string };
   role: Role;
 }
 

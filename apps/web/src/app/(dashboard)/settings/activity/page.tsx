@@ -75,7 +75,7 @@ async function Activity({ searchParams }: { searchParams: PageProps<"/settings/a
                 return (
                   <TableRow key={event.id}>
                     <TableCell className="w-24 whitespace-normal pl-4 align-top tabular text-muted-foreground sm:w-auto sm:whitespace-nowrap sm:pl-5">
-                      {formatDateTime(event.created_at)}
+                      {formatDateTime(event.created_at, me.organization.timezone)}
                     </TableCell>
                     <TableCell className="whitespace-normal align-top">
                       <div className="text-xs text-muted-foreground">{actionLabels[event.action] ?? event.action}</div>
