@@ -1,0 +1,27 @@
+# Render Blueprint for the Tindawise API (the public demo). See docs/DEPLOYMENT.md.
+# The free plan sleeps after 15 minutes without requests; the next request wakes it (30-60 s).
+services:
+  - type: web
+    name: tindawise-api
+    runtime: python
+    plan: free
+    region: singapore # closest Render region to the Philippines; can't be changed later
+    rootDir: services/api
+    buildCommand: pip install .
+    # Migrations run before the server starts: pre-deploy commands are for paid plans only.
+    # `alembic upgrade head` does nothing when the schema is already current.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"
+      - key: ENVIRONMENT
+        value: production
+      - key: DEMO_MODE
+        value: "true"
+      # Entered in the Render dashboard when the Blueprint is created (never committed):
+      - key: DATABASE_URL # Neon's connection string, as Neon shows it
+        sync: false
+      - key: CORS_ORIGINS # the Vercel site's address, e.g. https://tindawise.vercel.app
+        sync: false

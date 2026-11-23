@@ -6,15 +6,18 @@ Everything created here is sample data for building and testing the UI. Prices a
 illustrative shelf prices, not real supplier quotes. Safe to run more than once: existing
 records are left alone, and missing demo accounts are added.
 
-The demo accounts below are for local development and CI only. Their passwords are public
-(they're in this file), so never create them on a server that real people use.
+The demo accounts below are for local development, CI and the public demo. Their passwords are
+public (they're in this file), so the script refuses to run in production unless DEMO_MODE is on
+(docs/DEPLOYMENT.md). Never turn that on for a server with real store data.
 """
 
+import sys
 import uuid
 from decimal import Decimal
 
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import Category, Membership, Organization, Role, User
@@ -70,13 +73,16 @@ def seed_accounts(db) -> None:
     db.commit()
 
 
-def main() -> None:
+def main() -> int:
+    if not get_settings().sample_data_allowed:
+        print("Refusing to create demo accounts in production (DEMO_MODE is off).", file=sys.stderr)
+        return 1
     with SessionLocal() as db:
         if db.get(Organization, DEMO_ORG_ID):
             print(f"Demo organization already exists ({DEMO_ORG_ID}). Products left as they are.")
             seed_accounts(db)
             print_logins()
-            return
+            return 0
 
         org = Organization(id=DEMO_ORG_ID, name="Aling Nena's Mini-Mart (sample)", currency="PHP")
         db.add(org)
@@ -104,6 +110,7 @@ def main() -> None:
         print(f"Seeded demo organization {DEMO_ORG_ID} with {len(PRODUCTS)} sample products.")
         seed_accounts(db)
         print_logins()
+    return 0
 
 
 def print_logins() -> None:
@@ -113,4 +120,4 @@ def print_logins() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

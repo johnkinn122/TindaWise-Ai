@@ -12,7 +12,8 @@ tindawise-ai/
 │   ├── api/                 ✅ FastAPI backend: auth, products, inventory ledger, sales, overview, purchasing, reports
 │   └── ml/                  🚧 Forecasting: synthetic history, baselines, LightGBM, backtest
 ├── packages/                📋 Shared TypeScript types and UI used across apps
-├── infrastructure/          🚧 docker-compose (PostgreSQL + pgvector); deploy planned
+├── infrastructure/          ✅ docker-compose for local PostgreSQL + pgvector
+├── render.yaml              🚧 Render Blueprint for the demo API (prepared, not deployed: docs/DEPLOYMENT.md)
 ├── .github/workflows/       ✅ CI: web, api, e2e jobs
 ├── design-system/           ✅ Design source of truth (MASTER.md, tokens, preview)
 └── docs/                    ✅ Architecture and development log
@@ -559,4 +560,26 @@ the "Worth a look" list of unusual sales days. Results: [`docs/ml/EXPERIMENTS.md
 
 Both experiments' results are in the app ("Worth a look" on the Overview). Nothing else is
 planned for this phase.
+
+## Deployment (public demo)
+
+🚧 Prepared, not deployed. Steps and limits: [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
+
+| Piece | Host | Why |
+|---|---|---|
+| Web | Vercel Hobby | Free for a non-commercial demo; made for Next.js |
+| API | Render free web service (`render.yaml`, Singapore) | Free Python hosting; sleeps after 15 idle minutes |
+| Database | Neon free (Singapore) | Free PostgreSQL that doesn't expire (Render's free database does after 30 days) |
+
+- **`DEMO_MODE`** (API and web): sign-up off, a "public demo" banner, the demo accounts on the
+  sign-in page, and the only way the seed and reset scripts may write to a production database.
+  `Settings.sample_data_allowed` is the one rule both scripts check.
+- **Migrations run as the API starts** (`alembic upgrade head && uvicorn …`), since pre-deploy
+  commands are a paid Render feature.
+- **Database URLs from hosts** (`postgresql://…`, `postgres://…`) are rewritten to the installed
+  psycopg 3 driver; query parameters such as `sslmode=require` are kept.
+- **Cold starts:** the sign-in page calls `wakeApiAction` (a Server Action that requests
+  `/health`) as soon as it opens, so the API is usually awake by the time the visitor signs in.
+- **Reset:** `scripts.reset_demo --yes-delete-everything` empties every table (TRUNCATE, which the
+  activity log's append-only trigger doesn't block) and seeds the demo store again.
 

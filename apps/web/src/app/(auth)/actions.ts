@@ -74,3 +74,19 @@ export async function logoutAction() {
   await clearSessionCookie();
   redirect("/login");
 }
+
+/**
+ * Starts waking the API while the visitor types. On the free host the API sleeps after 15 idle
+ * minutes and takes 30-60 seconds to wake; asking for /health early hides most of that wait.
+ * Failures are ignored: signing in reports any real problem.
+ */
+export async function wakeApiAction(): Promise<void> {
+  const url = process.env.API_URL;
+  if (!url) return;
+  try {
+    await fetch(`${url.replace(/\/$/, "")}/health`, { cache: "no-store", signal: AbortSignal.timeout(90_000) });
+  } catch {
+    // Ignored on purpose: see above.
+  }
+}
+

@@ -18,7 +18,8 @@ They follow the same rules: price and cost snapshots on each line, line total = 
 one sale movement per line with its running balance, sequential receipt numbers. Prices and costs
 stay at today's catalogue values for the whole history.
 
-Refuses to run in production, or if the sample store already exists.
+Refuses to run in production (unless DEMO_MODE is on: the public demo), or if the sample store
+already exists.
 """
 
 from __future__ import annotations
@@ -331,8 +332,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=0, help="how units are grouped into receipts")
     args = parser.parse_args(argv)
 
-    if get_settings().environment == "production":
-        print("Refusing to write sample data in production.", file=sys.stderr)
+    if not get_settings().sample_data_allowed:
+        print("Refusing to write sample data in production (DEMO_MODE is off).", file=sys.stderr)
         return 1
     try:
         history = read_history(args.csv)
