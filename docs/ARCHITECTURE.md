@@ -13,7 +13,7 @@ tindawise-ai/
 │   └── ml/                  🚧 Forecasting: synthetic history, baselines, LightGBM, backtest
 ├── packages/                📋 Shared TypeScript types and UI used across apps
 ├── infrastructure/          ✅ docker-compose for local PostgreSQL + pgvector
-├── render.yaml              🚧 Render Blueprint for the demo API (prepared, not deployed: docs/DEPLOYMENT.md)
+├── render.yaml              ✅ Render Blueprint for the demo API (live: docs/DEPLOYMENT.md)
 ├── .github/workflows/       ✅ CI: web, api, e2e jobs
 ├── design-system/           ✅ Design source of truth (MASTER.md, tokens, preview)
 └── docs/                    ✅ Architecture and development log
@@ -563,7 +563,8 @@ planned for this phase.
 
 ## Deployment (public demo)
 
-🚧 Database live on Neon; API and web app not deployed yet. Steps and limits:
+✅ Live since 2026-11-23: **https://tindawise-ten.vercel.app** (web, Vercel) →
+https://tindawise-api.onrender.com (API, Render) → Neon. Steps and limits:
 [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
 
 | Piece | Host | Why |
