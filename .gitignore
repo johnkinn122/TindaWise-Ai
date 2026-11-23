@@ -43,3 +43,4 @@ apps/web/test/e2e/.auth/
 
 # data exports and generated histories (business data: never commit)
 services/**/*.csv
+.neon

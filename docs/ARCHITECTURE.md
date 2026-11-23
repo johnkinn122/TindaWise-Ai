@@ -563,7 +563,8 @@ planned for this phase.
 
 ## Deployment (public demo)
 
-🚧 Prepared, not deployed. Steps and limits: [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
+🚧 Database live on Neon; API and web app not deployed yet. Steps and limits:
+[`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
 
 | Piece | Host | Why |
 |---|---|---|
@@ -571,6 +572,8 @@ planned for this phase.
 | API | Render free web service (`render.yaml`, Singapore) | Free Python hosting; sleeps after 15 idle minutes |
 | Database | Neon free (Singapore) | Free PostgreSQL that doesn't expire (Render's free database does after 30 days) |
 
+- **Neon config as code:** `neon.ts` (the Neon CLI's policy file; `@neon/config` is a dev
+  dependency, used only by the CLI). The API uses the direct connection string for everything.
 - **`DEMO_MODE`** (API and web): sign-up off, a "public demo" banner, the demo accounts on the
   sign-in page, and the only way the seed and reset scripts may write to a production database.
   `Settings.sample_data_allowed` is the one rule both scripts check.

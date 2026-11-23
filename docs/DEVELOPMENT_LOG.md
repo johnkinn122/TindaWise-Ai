@@ -4,6 +4,60 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Demo database live on Neon (`chore/neon-setup`)
+
+### Done
+- Installed the official Neon CLI (`neon` 9.9.3, from github.com/neondatabase/neon-pkgs), ran
+  `neon init` for project `empty-shape-35732586`, branch `production` (AWS Singapore), and
+  signed in with `neon login` (the owner finished it in the browser).
+- `neon deploy`: no changes needed (the branch already matched `neon.ts`). It wrote
+  `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) to the git-ignored root
+  `.env.local`.
+- Loaded the demo, using the direct URL with `ENVIRONMENT=production` and `DEMO_MODE=true`:
+  - `alembic upgrade head` ran all 11 migrations.
+  - `scripts.seed` loaded the demo store and its 3 accounts.
+  - `scripts.seed_sample_history` loaded the second store: 2 years ending 2026-11-22, with 21,477
+    receipts, 48,170 lines and 49,658 stock movements (about 8 minutes over the network).
+- Repository:
+  - `neon.ts` and the `.neon` ignore line (from `neon init`).
+  - `@neon/config` as a dev dependency. `init` had added it and `@neon/env` as runtime
+    dependencies; `@neon/env` was unused, so it was removed.
+  - DEPLOYMENT.md and ARCHITECTURE.md describe the CLI route.
+  - The sample-history script no longer says "Local use only".
+
+### Driver and connection choice
+- The existing driver stays (SQLAlchemy and psycopg 3), as Neon's own agent skill advises.
+  No code change was needed: the API reads `DATABASE_URL`, and the web app never talks to the
+  database.
+- The API uses the **direct** string for migrations (the skill's rule) and for its traffic. The
+  skill suggests pooled for "web applications, serverless", but this API is one long-running
+  server with its own pool, and the pooler's transaction mode breaks session state and psycopg's
+  automatic prepared statements.
+
+### Verified
+- Export round trip: the sample store exported from Neon matches the loaded CSV exactly (12,410
+  rows, 0 unmatched, 0 differences in units sold or stockout days).
+- `npm run build` in `apps/web` with `DEMO_MODE=true`: exit 0, 28 routes. (The repo root has no
+  build script; the web app's is the one Vercel runs.)
+- Whole stack locally against Neon: the API on port 8000 using the direct URL, the production
+  web build on port 3200.
+  - `/health` returned `{"status":"ok","database":"ok"}`.
+  - Writes: signing in through the sign-in page's "Use" buttons wrote sessions to Neon (count
+    0 → 3).
+  - Demo store: Overview loaded, 17 products listed.
+  - Sample store: Overview with "Worth a look", and Reports for the last 30 days (₱62,209 net
+    sales, 927 transactions, daily chart). No console errors.
+- `neon config plan` still works after the dependency change. `npm audit`: the same 4 moderate
+  findings as before (minimatch via the shadcn CLI), no new ones.
+
+### Open items
+- Render (API) and Vercel (web) still need their accounts. They're the remaining steps in
+  DEPLOYMENT.md.
+- The Neon CLI's `esbuild` install script was blocked by npm's install-scripts setting. The
+  CLI worked without it.
+
+---
+
 ## 2026-11-23 — Free deployment, prepared (`chore/free-deployment`)
 
 ### Decisions
