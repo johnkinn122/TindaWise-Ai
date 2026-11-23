@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Response, status
 
 from app.api.deps import Auth, DbSession
+from app.core.config import get_settings
+from app.core.errors import ForbiddenError
 from app.schemas.auth import LoginRequest, Me, SessionCreated, SignupRequest
 from app.services import auth as service
 
@@ -19,7 +21,12 @@ def _session_response(context: service.AuthContext, token: str) -> SessionCreate
 
 @router.post("/signup", response_model=SessionCreated, status_code=status.HTTP_201_CREATED)
 def signup(data: SignupRequest, db: DbSession):
-    """Create an account and a store, and sign in as its owner."""
+    """Create an account and a store, and sign in as its owner. Off on the public demo, so
+    visitors aren't invited to leave a real email and password there."""
+    if get_settings().demo_mode:
+        raise ForbiddenError(
+            "This is a public demo, so sign-up is turned off. Sign in with a demo account."
+        )
     context, token = service.signup(db, data)
     return _session_response(context, token)
 

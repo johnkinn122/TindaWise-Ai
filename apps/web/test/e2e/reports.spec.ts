@@ -15,8 +15,10 @@ test.describe.serial("reports", () => {
     await page.goto("/products/new");
     await textbox(page, /Product name/).fill(productName);
     await textbox(page, /SKU/).fill(sku);
-    await textbox(page, /Selling price/).fill("50.00");
-    await textbox(page, /Cost/).fill("30.00");
+    // Priced high so its one sale is in today's top 10 however much else sold today (local
+    // databases keep every earlier run's sales).
+    await textbox(page, /Selling price/).fill("5000.00");
+    await textbox(page, /Cost/).fill("3000.00");
     await page.getByRole("textbox", { name: /Opening stock/ }).or(page.getByRole("spinbutton", { name: /Opening stock/ })).fill("5");
     await page.getByRole("button", { name: "Add product" }).click();
     await expect(page.getByRole("heading", { level: 1, name: productName })).toBeVisible();
@@ -59,7 +61,7 @@ test.describe.serial("reports", () => {
     expect(file.suggestedFilename()).toMatch(/^tindawise-products-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.csv$/);
     const text = await (await file.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString("utf8"));
     expect(text).toContain("Product,SKU,Unit,Net quantity,Net sales (PHP),Gross profit (PHP),Gross margin (%)");
-    expect(text).toContain(`${productName},${sku},pcs,1,50.00,20.00,40.0`);
+    expect(text).toContain(`${productName},${sku},pcs,1,5000.00,2000.00,40.0`);
   });
 });
 

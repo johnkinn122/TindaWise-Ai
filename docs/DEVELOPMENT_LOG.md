@@ -4,6 +4,81 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Free deployment, prepared (`chore/free-deployment`)
+
+### Decisions
+- Owner's choice: prepare a free public demo. Hosts, after checking current free plans:
+  - Vercel Hobby for the web app.
+  - Render's free web service for the API, which sleeps after 15 idle minutes.
+  - Neon's free PostgreSQL, because Render's free database expires after 30 days.
+  - Ruled out: Fly.io (no free tier for new accounts), Railway (a credit that runs out) and
+    Koyeb (apparently no free compute any more).
+- **Demo mode instead of public sign-up.** On a server anyone can use, visitors shouldn't be
+  invited to leave a real email and password. With `DEMO_MODE=true`:
+  - Sign-up is refused (API) and hidden (web).
+  - The sign-in page lists the demo accounts.
+  - Every screen shows a "public demo" banner.
+- The seed scripts used to refuse production outright (sample history) or not check at all
+  (`scripts.seed`, whose passwords are public). Both now refuse production unless demo mode is
+  on: stricter for a real deployment, and allowed for the demo.
+
+### Built
+- API:
+  - `Settings.demo_mode` and `sample_data_allowed`.
+  - `postgresql://` and `postgres://` URLs from hosts are rewritten for psycopg 3.
+  - Sign-up returns 403 in demo mode.
+  - `scripts.reset_demo --yes-delete-everything` empties every table and re-seeds.
+- `render.yaml` (Blueprint): free plan, Singapore, `rootDir: services/api`, migrations in the
+  start command, `/health` check, secrets entered in the dashboard (`sync: false`).
+- Web, in demo mode:
+  - The sign-in page lists the demo accounts, each with a "Use" button that fills the form.
+  - The page starts waking the API on open (`wakeApiAction`) and explains the first-load wait.
+  - The sign-up page explains sign-up is off, and the app shell shows a banner.
+- `docs/DEPLOYMENT.md`: the five steps (Neon, loading the demo data from your computer, Render,
+  Vercel, checks), updating, resetting, limits.
+
+### Verified
+- API pytest 281/281 (12 new): URL rewriting, the production/demo rule, sign-up refused in
+  demo mode while sign-in works, both seed scripts refusing production without demo mode, reset
+  needing its flag and refusing real production, reset emptying everything including the
+  append-only log. Ruff clean.
+- Vitest 147/147 (3 new: the demo accounts fill the form, the API is woken and the wait
+  explained, no sign-up link; outside demo mode the link is there and nothing is woken).
+  Typecheck and ESLint clean.
+- Playwright 96/96 (normal mode).
+- Render's build and start commands, simulated locally:
+  - `pip install .` in a fresh Python 3.13 virtual environment.
+  - Then `alembic upgrade head && uvicorn …` with `ENVIRONMENT=production`, `DEMO_MODE=true` and
+    a `postgresql://…?sslmode=prefer` URL.
+  - `/health` reported the database ok, sign-up got the demo 403, demo sign-in worked.
+- The web app built with `DEMO_MODE=true` against that API:
+  - Sign-in through the "Use" button, the banner and the sign-up notice.
+  - Checked at 1440px light and 390px dark. No overflow, no console errors.
+
+### Found and fixed (local test data)
+- A full Playwright run failed 3 tests, none touching this branch's code. The cause was the
+  local dev database, which keeps every earlier run's data:
+  - **POS:** the demo products the POS tests sell had run out of stock after many runs. I
+    restocked them with a recorded delivery. That also restocked Coca-Cola 1.5L, which the seed
+    keeps out of stock on purpose for the "out-of-stock products can't be added" test, so I
+    corrected it back to 0 with a count correction (the ledger is append-only).
+  - **Reports:** the reports test sold one ₱50 unit and expected it in today's top 10, but 11
+    products had sold more today. The test product now costs ₱5,000, so its one sale is always
+    in the top 10. Test-only change.
+- After that, the full suite passed (96/96). CI starts from a fresh database, so it wasn't
+  affected.
+
+### Not done / open items
+- **Not deployed.** Needs the owner's Vercel, Render and Neon accounts (docs/DEPLOYMENT.md).
+- Local e2e runs still use up the demo store's stock over time. `scripts.reset_demo
+  --yes-delete-everything` resets a local database too, but it also deletes the sample history
+  store, which then needs seeding again.
+- Render's Python version setting (`PYTHON_VERSION`) couldn't be confirmed from Render's docs;
+  the guide says to check the build log.
+- Free-tier cold starts: the first request after 15 idle minutes waits 30-60 s.
+
+---
+
 ## 2026-11-23 — Missing-stock alerts on the Overview (`feature/shrinkage-alerts`)
 
 ### Why

@@ -126,7 +126,8 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ reorder policy simulation (synthetic data) · ✅ demand-based reorder suggestions in the app ·
    ✅ anomaly detection experiments (synthetic data) · ✅ unusual-sales alerts in the app ·
    ✅ shrinkage experiments (synthetic data) · ✅ missing-stock alerts in the app
-3. **Deployment** (planned)
+3. **Deployment** (prepared, not live yet): a free public demo on Vercel + Render + Neon,
+   step by step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions and
 [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) for what was built, how it was verified,
