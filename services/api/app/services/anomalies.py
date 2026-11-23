@@ -49,6 +49,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
 from app.models import AnomalyDismissal, AuditAction, Organization, Product
+from app.services import shrinkage
 from app.services.audit import record
 from app.services.demand_history import daily_demand
 
@@ -59,6 +60,7 @@ SPIKE_MULTIPLE = 3.0
 DROP_MULTIPLE = 7.5
 
 Kind = Literal["spike", "drop"]
+DismissKind = Literal["spike", "drop", "shrinkage"]
 
 
 @dataclass(frozen=True)
@@ -189,12 +191,15 @@ def dismiss(
     actor_id: uuid.UUID,
     product_id: uuid.UUID,
     day: date,
-    kind: Kind,
+    kind: DismissKind,
     note: str | None,
     now: datetime | None = None,
 ) -> tuple[AnomalyDismissal, bool]:
     """Set an alert aside. Returns (dismissal, created). Dismissing one already dismissed returns
     the first dismissal unchanged, so a double click or retry is harmless and logged once.
+
+    Sales alerts ("spike", "drop") are keyed by their day; stock going missing ("shrinkage") by
+    the day of the latest count that found stock missing (services/shrinkage.py).
 
     Only an alert that's on the current list can be dismissed: this stops dismissals being
     stored in advance for days or products that haven't been flagged."""
@@ -203,16 +208,27 @@ def dismiss(
         return existing, False
 
     now = now or datetime.now(ZoneInfo("UTC"))
-    match = next(
-        (
-            a
-            for a in _all_alerts(db, org, now)
-            if a.product.id == product_id and a.day == day and a.kind == kind
-        ),
-        None,
-    )
-    if match is None:
-        raise NotFoundError("That alert isn't on the list any more. Refresh to see the latest.")
+    if kind == "shrinkage":
+        loss = shrinkage.find_loss(db, org, now, product_id, day)
+        if loss is None:
+            raise NotFoundError("That alert isn't on the list any more. Refresh to see the latest.")
+        sku = loss.product.sku
+        summary = f"Dismissed a missing-stock alert: {shrinkage.describe(loss)}"
+        figures = {"missing": loss.missing, "units_sold": loss.units_sold}
+    else:
+        match = next(
+            (
+                a
+                for a in _all_alerts(db, org, now)
+                if a.product.id == product_id and a.day == day and a.kind == kind
+            ),
+            None,
+        )
+        if match is None:
+            raise NotFoundError("That alert isn't on the list any more. Refresh to see the latest.")
+        sku = match.product.sku
+        summary = f"Dismissed an unusual-sales alert: {describe(match)}"
+        figures = {"units_sold": match.units_sold, "usual": round(match.usual, 1)}
 
     dismissal = AnomalyDismissal(
         organization_id=org.id,
@@ -230,15 +246,8 @@ def dismiss(
         action=AuditAction.ANOMALY_DISMISSED,
         entity_type="product",
         entity_id=product_id,
-        summary=f"Dismissed an unusual-sales alert: {describe(match)}",
-        details={
-            "sku": match.product.sku,
-            "day": day.isoformat(),
-            "kind": kind,
-            "units_sold": match.units_sold,
-            "usual": round(match.usual, 1),
-            "note": note,
-        },
+        summary=summary,
+        details={"sku": sku, "day": day.isoformat(), "kind": kind, **figures, "note": note},
     )
     try:
         db.commit()

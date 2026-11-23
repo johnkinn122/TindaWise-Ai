@@ -13,11 +13,12 @@ import { type FormState, toFormState } from "@/lib/form-state";
 export interface DismissAnomalyInput {
   product_id: string;
   day: string;
-  kind: AnomalyAlert["kind"];
+  /** "shrinkage": stock going missing; `day` is then the latest count that found it. */
+  kind: AnomalyAlert["kind"] | "shrinkage";
   note: string;
 }
 
-/** Dismiss one "Worth a look" alert. Dismissing it twice is harmless: the API keeps the first. */
+/** Dismiss one "Worth a look" alert (an unusual sales day or stock going missing). Dismissing it twice is harmless: the API keeps the first. */
 export async function dismissAnomalyAction(input: DismissAnomalyInput): Promise<FormState> {
   try {
     await apiFetch("/anomalies/dismissals", {

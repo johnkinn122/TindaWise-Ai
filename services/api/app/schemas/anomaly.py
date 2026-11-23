@@ -1,4 +1,5 @@
-"""Unusual sales days ("worth a look"): see `services/anomalies.py` for the rule."""
+"""The "Worth a look" list: unusual sales days (`services/anomalies.py`) and stock going
+missing (`services/shrinkage.py`)."""
 
 import uuid
 from datetime import date, datetime
@@ -11,6 +12,7 @@ from app.schemas.common import ORMModel
 from app.schemas.supplier import _blank_to_none
 
 AnomalyKind = Literal["spike", "drop"]
+DismissKind = Literal["spike", "drop", "shrinkage"]
 
 
 class AnomalyAlert(BaseModel):
@@ -26,6 +28,19 @@ class AnomalyAlert(BaseModel):
     in_stock_days: int  # how many days that average is based on
 
 
+class StockLossAlert(BaseModel):
+    """A product whose stock counts found 5%+ of its sales missing in the last 8 weeks."""
+
+    product_id: uuid.UUID
+    name: str
+    sku: str
+    unit: str
+    day: date  # store day of the latest count that found stock missing (the dismissal key)
+    missing_units: int  # net units removed by stock count corrections in the window
+    units_sold: int  # units rung up in the window
+    missing_share: Decimal  # missing / (sold + 1), four decimals (0.0612 = 6.1%)
+
+
 class Anomalies(BaseModel):
     as_of: datetime
     timezone: str
@@ -36,12 +51,18 @@ class Anomalies(BaseModel):
     drop_multiple: Decimal
     alerts: list[AnomalyAlert]  # not dismissed; newest day first
     dismissed_count: int  # alerts in the same days that someone dismissed
+    stock_window_first_day: date  # stock going missing: the 56 complete store days before today
+    stock_window_last_day: date
+    stock_window_days: int
+    missing_share_threshold: Decimal
+    stock_losses: list[StockLossAlert]  # not dismissed; largest share first
+    stock_losses_dismissed: int
 
 
 class AnomalyDismissRequest(BaseModel):
     product_id: uuid.UUID
     day: date
-    kind: AnomalyKind
+    kind: DismissKind
     note: Annotated[str, StringConstraints(max_length=280)] | None = None
 
     _blank = field_validator("note", mode="before")(_blank_to_none)
@@ -51,7 +72,7 @@ class AnomalyDismissalRead(ORMModel):
     id: uuid.UUID
     product_id: uuid.UUID
     day: date
-    kind: AnomalyKind
+    kind: DismissKind
     note: str | None
     dismissed_by: uuid.UUID
     created_at: datetime

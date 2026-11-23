@@ -235,6 +235,24 @@ export interface AnomalyAlert {
   in_stock_days: number;
 }
 
+/**
+ * A product whose stock counts found 5%+ of its sales missing in the last 8 weeks
+ * (services/api/app/services/shrinkage.py).
+ */
+export interface StockLossAlert {
+  product_id: string;
+  name: string;
+  sku: string;
+  unit: string;
+  /** Store day of the latest count that found stock missing ("2026-11-20"). */
+  day: string;
+  /** Net units removed by stock count corrections in the window. */
+  missing_units: number;
+  units_sold: number;
+  /** missing / (sold + 1), four decimals ("0.0891"). */
+  missing_share: string;
+}
+
 export interface Anomalies {
   as_of: string;
   timezone: string;
@@ -247,6 +265,14 @@ export interface Anomalies {
   /** Not dismissed, newest day first. */
   alerts: AnomalyAlert[];
   dismissed_count: number;
+  /** Stock going missing: the 56 complete store days before today. */
+  stock_window_first_day: string;
+  stock_window_last_day: string;
+  stock_window_days: number;
+  missing_share_threshold: string;
+  /** Not dismissed, largest share first. */
+  stock_losses: StockLossAlert[];
+  stock_losses_dismissed: number;
 }
 
 /** One entry of the append-only activity log (GET /audit-events, owner only). */

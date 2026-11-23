@@ -6,8 +6,11 @@ import {
   anomalyKey,
   anomalySummary,
   anomalyTitle,
+  stockItem,
+  stockLossDetail,
+  stockLossSummary,
 } from "@/lib/anomalies";
-import type { AnomalyAlert } from "@/lib/api/types";
+import type { AnomalyAlert, StockLossAlert } from "@/lib/api/types";
 import { formatCalendarDay } from "@/lib/format";
 
 const dismissAnomalyAction = vi.fn();
@@ -25,6 +28,18 @@ const alert = (overrides: Partial<AnomalyAlert> = {}): AnomalyAlert => ({
   units_sold: 0,
   usual_daily: "9.0",
   in_stock_days: 28,
+  ...overrides,
+});
+
+const loss = (overrides: Partial<StockLossAlert> = {}): StockLossAlert => ({
+  product_id: "p9",
+  name: "Bear Brand 33g",
+  sku: "BEAR",
+  unit: "pcs",
+  day: "2026-11-20",
+  missing_units: 9,
+  units_sold: 100,
+  missing_share: "0.0891",
   ...overrides,
 });
 
@@ -79,11 +94,39 @@ describe("anomaly wording", () => {
   });
 });
 
+describe("stock going missing wording", () => {
+  it("shows the missing units against sales", () => {
+    expect(stockLossDetail(loss())).toBe(
+      "9 pcs missing in counts · 8.9% of 100 sold in 8 weeks",
+    );
+  });
+
+  it("counts the products", () => {
+    expect(stockLossSummary(1)).toBe(
+      "1 product lost 5% or more of its sales in stock counts over the last 8 weeks.",
+    );
+    expect(stockLossSummary(2)).toBe(
+      "2 products lost 5% or more of their sales in stock counts over the last 8 weeks.",
+    );
+  });
+
+  it("dates the alert by the count that found the loss", () => {
+    const item = stockItem(loss());
+    expect(item).toMatchObject({
+      kind: "shrinkage",
+      day: "2026-11-20",
+      when: "Counted Fri, Nov 20",
+      title: "Missing in stock counts",
+    });
+    expect(anomalyKey(item)).not.toBe(anomalyKey({ ...item, day: "2026-11-25" }));
+  });
+});
+
 describe("WorthALookList", () => {
   beforeEach(() => dismissAnomalyAction.mockReset());
 
   it("says when nothing stands out", () => {
-    render(<WorthALookList alerts={[]} />);
+    render(<WorthALookList alerts={[]} losses={[]} />);
     expect(
       screen.getByText("Nothing unusual in the last 7 days."),
     ).toBeInTheDocument();
@@ -102,6 +145,7 @@ describe("WorthALookList", () => {
             usual_daily: "4.0",
           }),
         ]}
+        losses={[]}
       />,
     );
     expect(
@@ -119,7 +163,7 @@ describe("WorthALookList", () => {
 
   it("dismisses with an optional note and announces it", async () => {
     dismissAnomalyAction.mockResolvedValue({ status: "success" });
-    render(<WorthALookList alerts={[alert()]} />);
+    render(<WorthALookList alerts={[alert()]} losses={[]} />);
     fireEvent.click(
       screen.getByRole("button", {
         name: "Dismiss alert for Coke 1.5L, Sat, Nov 21",
@@ -147,7 +191,7 @@ describe("WorthALookList", () => {
       status: "error",
       message: "That alert isn't on the list any more.",
     });
-    render(<WorthALookList alerts={[alert()]} />);
+    render(<WorthALookList alerts={[alert()]} losses={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /^Dismiss alert for/ }));
     fireEvent.click(screen.getByRole("button", { name: "Dismiss alert" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -159,12 +203,55 @@ describe("WorthALookList", () => {
   });
 
   it("cancel closes the form and puts focus back on Dismiss", () => {
-    render(<WorthALookList alerts={[alert()]} />);
+    render(<WorthALookList alerts={[alert()]} losses={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /^Dismiss alert for/ }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /^Dismiss alert for/ }),
     ).toHaveFocus();
+  });
+
+  it("says when no stock is going missing", () => {
+    render(<WorthALookList alerts={[]} losses={[]} />);
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Stock going missing" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No stock count in the last 8 weeks found 5% or more of sales missing.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("lists stock going missing and links to the product's history", () => {
+    render(<WorthALookList alerts={[]} losses={[loss()]} />);
+    expect(screen.getByText("Missing in stock counts")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Bear Brand 33g" }),
+    ).toHaveAttribute("href", "/products/p9");
+    expect(
+      screen.getByRole("button", {
+        name: "Dismiss alert for Bear Brand 33g, Counted Fri, Nov 20",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("dismisses stock going missing by the day of its count", async () => {
+    dismissAnomalyAction.mockResolvedValue({ status: "success" });
+    render(<WorthALookList alerts={[]} losses={[loss()]} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Dismiss alert for/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss alert" }));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Alert for Bear Brand 33g dismissed.",
+      ),
+    );
+    expect(dismissAnomalyAction).toHaveBeenCalledWith({
+      product_id: "p9",
+      day: "2026-11-20",
+      kind: "shrinkage",
+      note: "",
+    });
   });
 });
