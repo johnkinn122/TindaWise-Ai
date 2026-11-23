@@ -125,7 +125,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ LightGBM forecaster (synthetic data) · ✅ demand export from the database ·
    ✅ reorder policy simulation (synthetic data) · ✅ demand-based reorder suggestions in the app ·
    ✅ anomaly detection experiments (synthetic data) · ✅ unusual-sales alerts in the app ·
-   ✅ shrinkage experiments (synthetic data) · 📋 shrinkage alerts in the app
+   ✅ shrinkage experiments (synthetic data) · ✅ missing-stock alerts in the app
 3. **Deployment** (planned)
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions and

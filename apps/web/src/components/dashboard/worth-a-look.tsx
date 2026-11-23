@@ -29,22 +29,25 @@ export async function WorthALook() {
     throw error;
   }
 
-  const { alerts, dismissed_count: dismissedCount, window_days: windowDays } = anomalies;
+  const { alerts, stock_losses: losses, window_days: windowDays } = anomalies;
+  const dismissedCount = anomalies.dismissed_count + anomalies.stock_losses_dismissed;
 
   return (
     <Panel title="Worth a look">
-      <WorthALookList alerts={alerts} />
-      <div className="grid gap-1.5 px-4 pb-4 pt-3 text-xs text-muted-foreground sm:px-5">
+      <WorthALookList alerts={alerts} losses={losses} />
+      <div className="grid gap-1.5 border-t border-border px-4 pb-4 pt-3 text-xs text-muted-foreground sm:px-5">
         <p>
-          Each product&apos;s sales are compared with its average on days it was in stock over the previous {windowDays}{" "}
-          days. A big day can be a bulk buyer or a sale rung up twice. Nothing sold while in stock can mean sales
-          weren&apos;t recorded.
+          Sales days: each product&apos;s sales are compared with its average on days it was in stock over the previous{" "}
+          {windowDays} days. A big day can be a bulk buyer or a sale rung up twice. Nothing sold while in stock can mean
+          sales weren&apos;t recorded.
+        </p>
+        <p>
+          Missing stock: what your stock count corrections removed over the last 8 weeks, against units sold. Damage you
+          recorded doesn&apos;t count. It can mean theft, damage nobody wrote down, or short deliveries, and it only
+          shows if you count stock regularly.
         </p>
         {dismissedCount > 0 && (
-          <p>
-            {dismissedCount === 1 ? "1 alert" : `${formatNumber(dismissedCount)} alerts`} from these days already
-            dismissed.
-          </p>
+          <p>{dismissedCount === 1 ? "1 alert" : `${formatNumber(dismissedCount)} alerts`} already dismissed.</p>
         )}
       </div>
     </Panel>

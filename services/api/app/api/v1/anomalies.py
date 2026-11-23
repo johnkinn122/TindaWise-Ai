@@ -5,19 +5,29 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Response, status
 
 from app.api.deps import CanReviewAnomalies, DbSession
-from app.schemas.anomaly import Anomalies, AnomalyAlert, AnomalyDismissalRead, AnomalyDismissRequest
+from app.schemas.anomaly import (
+    Anomalies,
+    AnomalyAlert,
+    AnomalyDismissalRead,
+    AnomalyDismissRequest,
+    StockLossAlert,
+)
 from app.services import anomalies as service
+from app.services import shrinkage
 
 router = APIRouter(prefix="/anomalies", tags=["anomalies"])
 
 
 @router.get("", response_model=Anomalies)
 def list_anomalies(db: DbSession, auth: CanReviewAnomalies):
-    """Owners and managers: unusual sales days in the last 7 complete store days."""
+    """Owners and managers: unusual sales days in the last 7 complete store days, and products
+    whose stock counts found 5%+ of sales missing in the last 8 weeks."""
     org = auth.organization
     now = datetime.now(ZoneInfo("UTC"))
     alerts, dismissed_count = service.find_alerts(db, org, now)
     first, last = service.checked_days(org, now)
+    losses, losses_dismissed = shrinkage.find_losses(db, org, now)
+    stock_first, stock_last = shrinkage.checked_window(org, now)
     return Anomalies(
         as_of=now,
         timezone=org.timezone,
@@ -41,6 +51,24 @@ def list_anomalies(db: DbSession, auth: CanReviewAnomalies):
             for a in alerts
         ],
         dismissed_count=dismissed_count,
+        stock_window_first_day=stock_first,
+        stock_window_last_day=stock_last,
+        stock_window_days=shrinkage.WINDOW_DAYS,
+        missing_share_threshold=Decimal(str(shrinkage.MISSING_SHARE)),
+        stock_losses=[
+            StockLossAlert(
+                product_id=loss.product.id,
+                name=loss.product.name,
+                sku=loss.product.sku,
+                unit=loss.product.unit,
+                day=loss.last_loss_day,
+                missing_units=loss.missing,
+                units_sold=loss.units_sold,
+                missing_share=Decimal(str(round(loss.share, 4))),
+            )
+            for loss in losses
+        ],
+        stock_losses_dismissed=losses_dismissed,
     )
 
 

@@ -10,4 +10,10 @@ test("the owner sees the Worth a look panel on the Overview, with how it works",
   await expect(panel).toBeVisible();
   await expect(panel.getByText(/Nothing unusual in the last 7 days\.|stands? out in the last 7 days\./)).toBeVisible();
   await expect(panel.getByText(/compared with its average on days it was in stock over the previous 28 days/)).toBeVisible();
+  // Stock going missing: depends on count corrections other tests may have made, so either state.
+  await expect(panel.getByRole("heading", { level: 3, name: "Stock going missing" })).toBeVisible();
+  await expect(
+    panel.getByText(/No stock count in the last 8 weeks found 5% or more|in stock counts over the last 8 weeks\./),
+  ).toBeVisible();
+  await expect(panel.getByText(/Damage you recorded doesn.t count/)).toBeVisible();
 });

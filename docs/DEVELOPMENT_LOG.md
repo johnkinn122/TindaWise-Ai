@@ -4,6 +4,67 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Missing-stock alerts on the Overview (`feature/shrinkage-alerts`)
+
+### Why
+Brings the shrinkage experiment's rule into the app, which finishes the ML items on the roadmap.
+It extends the approved "Worth a look" panel, so no new screen.
+
+### Built
+- API: `services/shrinkage.py`, the experiment's rule on real records. Over the 56 complete store
+  days before today it compares stock count corrections (`adjustment`, "Stock count correction"
+  in the app) with units sold, and flags missing ≥ 5% × (sold + 1). Recorded damage never counts.
+- `GET /anomalies` also returns `stock_losses` (largest share first) and the window.
+- Dismissals reuse `anomaly_dismissals` with kind `shrinkage`, keyed by the day of the latest
+  count that found stock missing: a dismissed product comes back only when a later count finds
+  more. Migration `0034c5890f56` widens `kind` (8 → 16 characters; "shrinkage" is 9) and allows
+  the new kind. Dismissals are logged in the activity log with the figures and note.
+- Web:
+  - The panel has two groups, "Unusual sales days" and "Stock going missing", each with a
+    heading and summary. Rows share one component, built from a common item in
+    `lib/anomalies.ts`.
+  - Product names link to the product's stock history.
+  - The footer explains both rules and counts dismissed alerts of both kinds.
+
+### Found and fixed
+- The migration's constraint drop failed: the naming convention added its prefix to the name
+  given. Fixed with `op.f()`. Migrations are transactional, so nothing was half-applied.
+- On a narrow column, the date wrapped onto its own line starting with "·". The separator dot is
+  gone; spacing and the muted color set the date apart.
+- The activity log said "7%" where the panel said "7.4%". Both use one decimal now.
+- Two API tests were wrong, not the code: 5 missing of 100 sold is 4.95% (5 ÷ 101), under the
+  line, and a test passed a product id as text where the service compares UUIDs.
+
+### Verified
+- API pytest 269/269 (13 new):
+  - The 5% line by hand.
+  - Counts that find stock missing are flagged with the latest count's day. Found stock
+    offsets, small losses and damage are left out.
+  - Only the 56 complete days count (one day older and today are ignored), and sales outside
+    the window are ignored.
+  - Largest share first; archived products and other stores are left out; the store's time
+    zone decides the count's day.
+  - A dismissal holds until a later count finds more.
+  - API: response shape, dismissal and its log entry, 404 for a day that isn't the alert's,
+    cashiers 403.
+- Migration upgrade → downgrade → upgrade; `alembic check` clean. Ruff clean.
+- Vitest 144/144 (6 new: wording, the count-day date, the empty state, the link to the product,
+  dismissing by the count's day). Typecheck and ESLint clean.
+- Playwright 96/96: the panel test also checks the stock group. axe on `/` in both themes.
+- Manual, on the temporary visual-check store with two count corrections added through the API:
+  1440px light and 390px dark (the form open). No overflow, no console errors. Dismissed a
+  missing-stock alert in the browser: the row left, the summary and the dismissed count updated,
+  and the activity log showed the entry.
+
+### Known issues / open items
+- It depends on counts: a store that never records a stock count sees nothing. The app doesn't
+  remind anyone to count yet.
+- Positive count corrections offset losses, so stock added through "Stock count correction"
+  (rather than as a delivery) hides losses in the same window.
+- Synthetic validation only, as before.
+
+---
+
 ## 2026-11-23 — ML: shrinkage experiments (`feature/ml-shrinkage`)
 
 ### Why

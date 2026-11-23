@@ -128,6 +128,7 @@ app/
 │   ├── overview.py    dashboard figures: store-local days, comparisons
 │   ├── reorder.py     reorder suggestions: recent in-stock sales, lead time, open orders
 │   ├── anomalies.py   unusual sales days ("Worth a look"): ratio rule, dismissals
+│   ├── shrinkage.py   stock going missing ("Worth a look"): count corrections vs sales
 │   ├── suppliers.py   supplier list/search, unique names per store (case-insensitive), archive
 │   ├── purchase_orders.py  draft → approve → receive; locks, idempotency, latest-cost rule
 │   ├── reports.py     sales report: periods, buckets, products, categories, payments, purchases
@@ -284,6 +285,24 @@ were rounded from the validation-period thresholds and scored once on the test p
   Found on the sample history store (its sales stop the day before it was seeded). The
   experiment's synthetic data has no closed days, so its figures still apply.
 
+### Stock going missing (`app/services/shrinkage.py`, same endpoint)
+
+Chosen by experiment (`docs/ml/EXPERIMENTS.md`, "Shrinkage"): on simulated stores, the plain
+share of sales beat a count of missing units and a Poisson test.
+
+| Figure | Definition |
+|---|---|
+| Window | The 56 complete store days before today |
+| Missing | Units removed by stock count corrections (`adjustment`), net of any a count found, when that's a loss. Recorded damage never counts |
+| Sold | Units rung up in the window (refunds not subtracted) |
+| Flag | Missing ≥ 5% × (sold + 1) |
+
+- Returned in `GET /anomalies` as `stock_losses`, largest share first.
+- **Dismissal key:** the store day of the latest count that found stock missing (kind
+  `shrinkage`). A dismissed product comes back only when a later count finds more missing.
+  Migration `0034c5890f56` widened `anomaly_dismissals.kind` and added the kind.
+- It depends on the store counting stock. A product nobody counted shows nothing.
+
 Cashiers get the same response shape with `sales_scope: "mine"` (their own sales only, matching the
 sales list), `costs_visible: false`, and every cost-derived field (`gross_margin`, `unit_cost`,
 `estimated_cost`) set to `null` by the API, not just hidden in the UI.
@@ -371,7 +390,7 @@ and see stock levels on the product list instead.
 | `purchase_order.approved` / `.cancelled` / `.closed` | The order changes to that status |
 | `product.price_changed` | A product's price or cost changes (old → new) |
 | `product.archived` | An active product is archived |
-| `anomaly.dismissed` | An owner or manager dismisses an unusual-sales alert (product, day, kind, figures, note) |
+| `anomaly.dismissed` | An owner or manager dismisses an unusual-sales or missing-stock alert (product, day, kind, figures, note) |
 
 - **Append-only in the database.** A `BEFORE UPDATE OR DELETE` trigger raises an error for every
   row, whoever runs the statement, including raw SQL. Foreign keys to organizations and users
@@ -538,7 +557,6 @@ the "Worth a look" list of unusual sales days. Results: [`docs/ml/EXPERIMENTS.md
   stores (a split by time left too few problems to choose from). Result: "missing units ≥ 5%
   of units sold" is best (`docs/ml/EXPERIMENTS.md`).
 
-| Planned next | Notes |
-|---|---|
-| Shrinkage alerts in the app | The 5% rule from count corrections, in the "Worth a look" panel |
+Both experiments' results are in the app ("Worth a look" on the Overview). Nothing else is
+planned for this phase.
 
