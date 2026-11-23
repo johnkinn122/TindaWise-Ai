@@ -6,6 +6,10 @@ sales, suppliers and purchase orders, reports, and demand-based reorder suggesti
 > **Status:** early development. Built so far: sign-in with owner/manager/cashier roles,
 > Products, Point of Sale, sales history with refunds, an Overview dashboard, suppliers and
 > purchase orders, Reports, and an inventory ledger that prevents overselling. Everything else is planned; see [Roadmap](#roadmap).
+>
+> **Live demo:** [tindawise-ten.vercel.app](https://tindawise-ten.vercel.app) (sample data;
+> the sign-in page lists the demo accounts). The free API sleeps when idle, so the first
+> sign-in can take up to a minute.
 
 ## What works today
 
@@ -126,8 +130,9 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ reorder policy simulation (synthetic data) · ✅ demand-based reorder suggestions in the app ·
    ✅ anomaly detection experiments (synthetic data) · ✅ unusual-sales alerts in the app ·
    ✅ shrinkage experiments (synthetic data) · ✅ missing-stock alerts in the app
-3. **Deployment** (prepared, not live yet): a free public demo on Vercel + Render + Neon,
-   step by step in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+3. **Deployment**: ✅ a free public demo on Vercel + Render + Neon,
+   [tindawise-ten.vercel.app](https://tindawise-ten.vercel.app); steps in
+   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions and
 [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) for what was built, how it was verified,

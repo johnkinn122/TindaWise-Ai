@@ -4,6 +4,52 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Public demo live (`docs/demo-live`)
+
+### Done (by the owner in the Render and Vercel dashboards, guided step by step)
+- **API on Render:** Blueprint from `render.yaml`, free plan, Singapore, at
+  https://tindawise-api.onrender.com. Render's GitHub app has access to this repository only.
+- **Web app on Vercel:** Hobby plan, Root Directory `apps/web`, `API_URL` and `DEMO_MODE=true`,
+  at **https://tindawise-ten.vercel.app**. Vercel offered a multi-service project (it found
+  the web app, the API and the ML code); "Import single project" on the web app was used.
+- **CORS:** `CORS_ORIGINS` on Render changed from the `https://example.com` placeholder to the
+  Vercel address.
+- **Database password reset:** the Neon password appeared in a screenshot during setup, so it
+  was reset in the Neon console before Render received it. `.env.local` was updated and both
+  connection strings (pooled and direct) were tested.
+
+### Problems along the way
+- **First Render deploy failed:** `Could not parse SQLAlchemy URL from given URL string`. The
+  build and Python 3.13.18 were fine; the pasted `DATABASE_URL` wasn't a bare URL (most
+  likely the quotes it has in `.env.local`). Re-pasting only the URL fixed it. DEPLOYMENT.md
+  now warns about this.
+- **`tindawise.vercel.app` is someone else's site.** It answered with 200 but redirected to
+  `/sign-in`; this app's page is `/login`. The project's real address has a suffix.
+
+### Verified (against the live services)
+- API, with curl:
+  - `/health`: `{"status":"ok","database":"ok"}`. The first request took 69 s (cold start).
+  - Sign-up refused with the demo 403.
+  - Demo owner sign-in, `/auth/me` (Aling Nena's store), 17 products, sign-out (204).
+  - `/docs`: 200.
+  - CORS: allows the Vercel origin; `https://example.com` no longer gets the header.
+- Web, with a Playwright script in Chromium:
+  - Desktop at 1440px, light mode, as `owner@example.com`.
+  - Pixel 7, dark mode, as `sample-owner@example.com`.
+  - Both: sign-in through the "Use" button, the demo banner, and Overview, Products (17 rows),
+    Sell, Reports and Inventory, all 200 with no horizontal overflow. The sign-up page says
+    sign-up is off. No console errors.
+  - Overview screenshots reviewed for both.
+
+### Known issues / open items
+- The sample-history store's sales end on 2026-11-22, so its Overview compares today with a
+  busy day ("▼100% vs last Monday") and it will look quieter over time (listed in DEPLOYMENT.md).
+- The checks above signed in as demo users, so the live database has a few extra sessions.
+- Possible hardening (not done): strip whitespace and quotes from `DATABASE_URL` in
+  `Settings`, so the paste mistake above can't stop a deploy.
+
+---
+
 ## 2026-11-23 — Demo database live on Neon (`chore/neon-setup`)
 
 ### Done

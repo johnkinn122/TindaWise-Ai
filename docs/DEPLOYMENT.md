@@ -3,7 +3,10 @@
 Status:
 - ✅ **Database live on Neon** (2026-11-23): project `empty-shape-35732586`, branch `production`,
   AWS Singapore. Both demo stores are loaded.
-- 📋 API (Render) and web app (Vercel): not deployed yet.
+- ✅ **API live on Render** (2026-11-23): https://tindawise-api.onrender.com (Singapore,
+  Python 3.13.18).
+- ✅ **Web app live on Vercel** (2026-11-23): **https://tindawise-ten.vercel.app**.
+  (`tindawise.vercel.app` belongs to someone else, so Vercel added a suffix.)
 
 | Piece | Host (free plan) | Notes |
 |---|---|---|
@@ -87,26 +90,33 @@ Closing it means later local commands use your local database again, not the dem
 2. **New → Blueprint**, pick the repository. Render reads `render.yaml` at the repo root and
    proposes one free web service, `tindawise-api`, in Singapore.
 3. It asks for two values:
-   - `DATABASE_URL`: the Neon connection string from step 1, pasted as is (the API converts
-     `postgresql://` itself).
+   - `DATABASE_URL`: the Neon connection string from step 1 (the API converts
+     `postgresql://` itself). Paste only the URL: **no surrounding quotes** (as it appears in
+     `.env.local`) and no spaces. Otherwise the start fails with `Could not parse SQLAlchemy
+     URL from given URL string`.
    - `CORS_ORIGINS`: enter `https://example.com` for now and fix it in step 5.
 4. Create it and wait for the first deploy. The log should show the build, `alembic upgrade
    head`, then Uvicorn starting.
-   - Check the Python version in the build log (`render.yaml` sets `PYTHON_VERSION` to 3.13).
-     If Render used another version, set it in the service's settings.
+   - Check the Python version in the build log (`render.yaml` sets `PYTHON_VERSION` to 3.13;
+     on 2026-11-23 Render installed 3.13.18).
 5. Open `https://<your-service>.onrender.com/health`. Expect
    `{"status":"ok","database":"ok"}`.
 
 ## 4. Web app: Vercel
 
 1. Sign up at vercel.com with GitHub (the free Hobby plan).
-2. **Add New → Project**, import the repository.
-3. Set **Root Directory** to `apps/web`. Vercel detects Next.js and the npm workspace.
+2. **Add New → Project** (or go to vercel.com/new), import the repository.
+   - Vercel detects three apps (web, API, ML) and offers a multi-service project. Choose
+     **Import single project** on the `web` row instead: the API runs on Render, and no
+     `vercel.json` is needed.
+3. Check that **Root Directory** is `apps/web` and the preset is Next.js. The project name is
+   only the first part of the address (`tindawise`, not `tindawise.vercel.app`).
 4. Add environment variables (Production) **before** the first deploy. Some pages are built
    ahead of time, so a change only applies after a redeploy:
    - `API_URL`: `https://<your-service>.onrender.com` (no trailing slash needed)
    - `DEMO_MODE`: `true`
-5. Deploy. Note the site's address, e.g. `https://tindawise.vercel.app`.
+5. Deploy. Note the site's address from the project's **Domains**. If the name was taken,
+   Vercel adds a suffix (this demo is `https://tindawise-ten.vercel.app`).
 
 ## 5. Finish and check
 
