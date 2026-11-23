@@ -97,8 +97,6 @@ src/
   focus moves to an error summary, and typed values are kept after a failed submit.
 - **Stock changes are idempotent from the UI too.** The stock form creates an `Idempotency-Key` at
   submit time, so a double submit or network retry is applied once.
-- **AI actions stay inert until approval exists.** "Create purchase order" is disabled until the
-  backend has purchase orders with a human-approval flow (claude.md §8).
 - **Rules are not dressed up as AI.** The Overview's reorder list comes from an average of recent
   in-stock sales with a safety buffer, not a model, so it uses a plain panel, not the Resibo
   receipt look, which MASTER.md §7 reserves for AI output. Each line says why it's suggested.
@@ -387,7 +385,7 @@ and see stock levels on the product list instead.
 - **Owner only** (`CanReviewAudit`): the log records what managers do, so the owner reviews it.
   Filters: action, person, store days. Newest first, paginated.
 - `actor_user_id` is null only for actions without a signed-in person (reserved for scheduled
-  jobs and the planned AI agent, which will record its proposals and the approvals).
+  jobs).
 
 ### Authentication and roles
 
@@ -535,6 +533,3 @@ the "Worth a look" list of unusual sales days. Results: [`docs/ml/EXPERIMENTS.md
 |---|---|
 | Stock anomalies (shrinkage) | Unexplained losses in the stock ledger; needs a simulation of count corrections first |
 
-## AI agent
-
-📋 Not started. See `claude.md` §8.

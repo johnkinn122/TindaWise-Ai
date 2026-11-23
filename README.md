@@ -124,8 +124,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ LightGBM forecaster (synthetic data) · ✅ demand export from the database ·
    ✅ reorder policy simulation (synthetic data) · ✅ demand-based reorder suggestions in the app ·
    ✅ anomaly detection experiments (synthetic data) · ✅ unusual-sales alerts in the app
-3. **AI agent** (planned): purchase-order drafts with human approval
-4. **Deployment** (planned)
+3. **Deployment** (planned)
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions and
 [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) for what was built, how it was verified,
