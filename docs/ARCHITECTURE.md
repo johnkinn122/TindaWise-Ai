@@ -450,8 +450,8 @@ Consequences handled in the code:
 
 ## Machine learning — `services/ml`
 
-🚧 Built: baselines, a LightGBM forecaster, a chronological backtest, a reorder simulation and
-anomaly detection experiments, all on synthetic data. Two results are used in the app, each as a
+🚧 Built: baselines, a LightGBM forecaster, a chronological backtest, a reorder simulation,
+sales anomaly experiments and shrinkage experiments, all on synthetic data. Two results are used in the app, each as a
 plain rule re-implemented in the API (no model code is imported): reorder suggestions and
 the "Worth a look" list of unusual sales days. Results: [`docs/ml/EXPERIMENTS.md`](ml/EXPERIMENTS.md).
 
@@ -529,7 +529,16 @@ the "Worth a look" list of unusual sales days. Results: [`docs/ml/EXPERIMENTS.md
   Result: the ratio baseline is the best on this data (`docs/ml/EXPERIMENTS.md`). `--fixed
   SPIKE_X DROP_X` scores it at fixed multiples, the form the app uses (3× and 7.5×).
 
+- **Shrinkage** (`shrinkage.py`, synthetic only): a store simulation that keeps true and recorded
+  stock, with unrecorded losses (a normal rate per product, plus planted problems), recorded
+  damage, and stock counts every 14 days recorded as adjustments, as the app does. Sales need
+  the unit on the shelf and in the records, and reorders follow recorded stock, so phantom stock
+  happens. Detectors score each product weekly from the last 56 days of count corrections and
+  sales. Thresholds are chosen on 10 validation **stores** and scored once on 6 separate test
+  stores (a split by time left too few problems to choose from). Result: "missing units ≥ 5%
+  of units sold" is best (`docs/ml/EXPERIMENTS.md`).
+
 | Planned next | Notes |
 |---|---|
-| Stock anomalies (shrinkage) | Unexplained losses in the stock ledger; needs a simulation of count corrections first |
+| Shrinkage alerts in the app | The 5% rule from count corrections, in the "Worth a look" panel |
 

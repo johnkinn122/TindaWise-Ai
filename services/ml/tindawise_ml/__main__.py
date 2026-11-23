@@ -5,6 +5,7 @@
 - tune: score LightGBM settings on the validation period (never the test period)
 - policies: replay the test period with reorder policies
 - anomalies: plant labelled anomalies and score the detectors
+- shrinkage: simulate stock counts with planted losses and score the detectors
 
 `backtest` and `tune` use the synthetic history unless `--csv` points at an exported table
 (services/api `scripts.export_demand`).
@@ -25,6 +26,13 @@ from tindawise_ml.baselines import BASELINES, in_stock_moving_average, moving_av
 from tindawise_ml.data import load_demand_csv
 from tindawise_ml.gbm import make_lightgbm_forecaster
 from tindawise_ml.inventory import CurrentRule, ForecastPolicy, Policy, simulate
+from tindawise_ml.shrinkage import (
+    FIRST_CHECK_DAY,
+    WINDOW_DAYS,
+    ShrinkageConfig,
+    simulate_stores,
+)
+from tindawise_ml.shrinkage import evaluate as evaluate_shrinkage
 from tindawise_ml.synthetic import (
     DEFAULT_DAYS,
     DEFAULT_SEED,
@@ -122,6 +130,34 @@ def _compare_policies(history: pd.DataFrame, args: argparse.Namespace) -> pd.Dat
     return table
 
 
+def _shrinkage(args: argparse.Namespace) -> int:
+    config = ShrinkageConfig(count_every_days=args.count_every)
+    validation_seeds = list(range(1001, 1001 + args.validation_stores))
+    validation = simulate_stores(validation_seeds, config)
+    test = simulate_stores(args.seeds, config)
+    table = evaluate_shrinkage(validation, test)
+    for column in ("precision", "recall", "recall_small"):
+        table[column] = table[column].map(lambda v: "n/a" if pd.isna(v) else f"{v:.0%}")
+    for column in ("threshold", "f1", "false_per_week", "avg_precision"):
+        table[column] = table[column].map(lambda v: f"{v:.2f}")
+    table["median_days_to_detect"] = table["median_days_to_detect"].map(
+        lambda v: "n/a" if pd.isna(v) else f"{v:.0f}"
+    )
+    problems = sum(len(r.labels) for r in test)
+    print("SYNTHETIC SAMPLE DATA: simulated stores and stock counts, not a real store.")
+    print(
+        f"- {args.validation_stores} validation stores (seeds {validation_seeds[0]}-"
+        f"{validation_seeds[-1]}) choose the thresholds; test stores (seeds "
+        f"{', '.join(map(str, args.seeds))}) score them, {problems} planted problems"
+    )
+    print(
+        f"- 17 products, {DEFAULT_DAYS} days each; counted every {args.count_every} days; "
+        f"checked weekly from day {FIRST_CHECK_DAY} over the last {WINDOW_DAYS} days\n"
+    )
+    print(_markdown(table))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tindawise_ml")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -170,7 +206,16 @@ def main(argv: list[str] | None = None) -> int:
         help="also score the ratio rule (the app's) at these fixed multiples on the test period",
     )
 
+    shrinkage = commands.add_parser(
+        "shrinkage", help="simulate stock counts with planted losses, score detectors (synthetic)"
+    )
+    shrinkage.add_argument("--seeds", type=int, nargs="+", default=[42, 1, 2, 3, 4, 5])
+    shrinkage.add_argument("--validation-stores", type=int, default=10)
+    shrinkage.add_argument("--count-every", type=int, default=14, help="days between counts")
+
     args = parser.parse_args(argv)
+    if args.command == "shrinkage":
+        return _shrinkage(args)
     source = getattr(args, "csv", None)
     start = _first_day(args)
     if source is not None:

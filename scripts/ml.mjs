@@ -5,6 +5,7 @@
 //   npm run tune:ml      → score LightGBM settings on the validation period (a few minutes)
 //   npm run policies:ml  → replay the test period with reorder policies (a few minutes)
 //   npm run anomalies:ml → plant labelled anomalies and score the detectors
+//   npm run shrinkage:ml → simulate stock counts with planted losses and score the detectors
 import { join } from "node:path";
 import { pickTask, runInVenv } from "./python-venv.mjs";
 
@@ -21,6 +22,7 @@ const tasks = {
   tune: [["-m", "tindawise_ml", "tune", ...extra]],
   policies: [["-m", "tindawise_ml", "policies", ...extra]],
   anomalies: [["-m", "tindawise_ml", "anomalies", ...extra]],
+  shrinkage: [["-m", "tindawise_ml", "shrinkage", ...extra]],
 };
 
 runInVenv(mlDir, pickTask("ml.mjs", tasks, process.argv[2]));
