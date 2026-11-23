@@ -5,6 +5,81 @@ show. Commands are from `services/ml` with its virtual environment.
 
 ---
 
+## 2026-11-23 — Shrinkage: finding stock that goes missing (`feature/ml-shrinkage`)
+
+### Why
+CLAUDE.md §7: detect unusual inventory patterns. Shrinkage (shoplifting, items taken by staff,
+damage nobody records, short deliveries) is lost profit, and it makes recorded stock wrong:
+a shelf the app thinks holds 5 can be empty, so it isn't reordered. The only place it shows in
+Tindawise is a stock count, recorded as an `adjustment`. Which products' counts show more
+missing stock than normal?
+
+### Setup
+- `simulate_store` (`shrinkage.py`) keeps **true** and **recorded** stock for the 17 demo
+  products. Demand is drawn as in `synthetic.py` from separate random streams, so earlier
+  experiments are unchanged (a test checks this).
+  - Every product loses some stock unrecorded: a normal rate drawn per product, 0.5-2% of
+    expected sales. A quarter of the products (4) get a **planted problem** from a random day:
+    an extra 3-15%. These are the labels.
+  - Recorded damage (0.5%) is explained loss and never counts.
+  - A sale needs the unit on the shelf and in the records. Reorders follow recorded stock.
+  - Each product is counted every 14 days (staggered), 10% of counts off by one, and the
+    difference is recorded as an adjustment.
+- Detectors run weekly from day 300 on the last **56 days** (four counts): missing units = the
+  net of the adjustments, when it's a loss.
+  - **missing units (baseline):** the units.
+  - **share of sales:** missing / (units sold + 1), the retail "shrink %".
+  - **poisson vs store rate:** -log10 P(this many missing) at the store's own loss rate over the
+    half-year before the window.
+- **Split by store, not by time:** thresholds (best F1) are chosen on 10 validation stores
+  (seeds 1001-1010), then scored once on 6 test stores (seeds 42, 1-5; 24 problems). Windows
+  that a problem only partly covers aren't scored. Days to detect: from a problem's start to the
+  first weekly check that flags it, for the 18 problems that started after checking began.
+- Command: `python -m tindawise_ml shrinkage [--count-every N]`.
+
+### A first setup was too easy, and was changed before drawing conclusions
+The first run had the same 1% normal loss on every product and problems of +8-20%. All three
+detectors scored average precision 0.93-1.00. Real shrinkage is usually 1-2% of sales and
+varies by product, so problems were made smaller (+3-15%) and normal loss varied per product
+(0.5-2%). Only the second setup's results are used below.
+
+### Results (6 test stores, counts every 14 days)
+
+| detector | threshold | precision | recall | recall, problems under +6% | false alarms / store-week | avg precision | days to detect (median) |
+|---|---|---|---|---|---|---|---|
+| missing units (baseline) | 10 units | 67% | 64% | 45% | 0.59 | 0.74 | 20 (15 of 18 found) |
+| **share of sales** | **5%** | **93%** | **88%** | **70%** | **0.12** | **0.96** | 29 (18 of 18) |
+| poisson vs store rate | 1.91 | 93% | 81% | 58% | 0.12 | 0.93 | 28 (16 of 18) |
+
+How often the store counts (`--count-every`):
+
+| counted every | share of sales: precision / recall / small | false alarms / store-week | days to detect |
+|---|---|---|---|
+| 7 days | 93% / 91% / 75% | 0.14 | 30 |
+| 14 days | 93% / 88% / 70% | 0.12 | 29 |
+| 28 days | 95% / 86% / 63% | 0.08 | 33 |
+
+### What this shows
+- **The plain shrink % is best again:** "more than 5% of units sold went missing over the last
+  8 weeks". It found every new problem, with about one false alarm per store every 8 weeks.
+  It's also the rule an owner already understands.
+- **Counting missing units alone doesn't work:** a fast seller's normal loss passes any count a
+  slow seller's problem would reach. The Poisson test is close to the share but misses more
+  small problems, probably because one store-wide rate fits products with a high normal loss
+  badly (not tested separately).
+- **Detection takes about a month:** the loss has to build up to 5% of 8 weeks of sales.
+- **Counting more often barely helps** over an 8-week window: it adds a little recall for small
+  problems. What matters is counting regularly at all. Without counts there is nothing to see.
+
+### What this does not show
+- Real stores. Every rate here is an assumption, and real problems may come and go (a
+  shoplifter who stops) instead of running steadily.
+- Small stores' noise at small numbers: a product selling 1 a day sells 56 in a window, so
+  3 missing units is already 5%. Miscounts are only modelled as off by one.
+- Short deliveries recorded as full, and refunds put back on the shelf, aren't modelled.
+
+---
+
 ## 2026-11-23 — Fixed multiples for the app's anomaly rule (`feature/anomaly-alerts`)
 
 ### Why

@@ -4,6 +4,59 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — ML: shrinkage experiments (`feature/ml-shrinkage`)
+
+### Why
+The last ML item on the roadmap (CLAUDE.md §7: unusual inventory patterns). Chosen over
+deployment and polish because the roadmap runs Core Platform → ML → Deployment, and it costs
+nothing to run.
+
+### Built
+- `tindawise_ml/shrinkage.py`:
+  - `simulate_store`: true vs recorded stock, unrecorded losses (normal rate per product plus
+    planted problems), recorded damage, staggered counts recorded as adjustments, and sales
+    capped by both stock levels (so phantom stock happens).
+  - Three detectors over the last 56 days of count corrections: missing units, share of sales,
+    and a Poisson test against the store's own loss rate.
+  - Evaluation split by store: thresholds chosen on 10 validation stores, scored once on 6 test
+    stores, with recall for small problems and days to detect.
+- `python -m tindawise_ml shrinkage [--count-every N]` / `npm run shrinkage:ml`.
+
+### Results (synthetic; full tables in EXPERIMENTS.md)
+- "More than 5% of units sold went missing over 8 weeks" is best: 93% precision, 88% recall
+  (70% for problems under +6%), about one false alarm per store every 8 weeks, every new
+  problem found, after a median of 29 days. Counting every 7 or 28 days instead of 14 changes
+  little.
+
+### Found and fixed
+- **Splitting by time left one problem to choose thresholds from.** The first version chose
+  thresholds on a store's validation period, where only one planted problem had a complete
+  window. It learnt "56 missing units" from one fast seller and found none of the test
+  problems. Thresholds are now chosen on separate validation stores.
+- **The first setup was too easy.** With the same 1% normal loss everywhere and problems of
+  +8-20%, every detector scored average precision 0.93-1.00. Normal loss now varies per product
+  (0.5-2%) and problems are +3-15%. Both versions are recorded in EXPERIMENTS.md.
+
+### Verified
+- ML pytest 138/138 (16 new):
+  - The simulation: no losses means no corrections and matching stock; a count restores the
+    records; stock never goes negative; damage shows on both levels; stockouts follow the
+    records; phantom stock happens; problems are planted within their dates and rates and
+    raise missing stock after they start.
+  - Determinism: same seed, same records, and `generate_history` is unchanged by it.
+  - By hand: windows net the corrections and ignore damage and older rows, the baseline rate
+    and its floor, all three scores, weekly checkpoints, partly affected windows left out,
+    detection delays.
+  - Thresholds come from the validation stores only. The CLI runs.
+- Ruff clean.
+
+### Known issues / open items
+- Synthetic only, with assumed rates. Steady problems only (no on-and-off losses); short
+  deliveries and miscounts beyond one unit aren't modelled.
+- Nothing in the app yet. Next: the 5% rule from real count corrections in "Worth a look".
+
+---
+
 ## 2026-11-23 — Docs: AI agent removed from the plan (`docs/remove-ai-agent`)
 
 - Owner's decision: no AI agent either. It would need an AI model (a paid API key, or a local

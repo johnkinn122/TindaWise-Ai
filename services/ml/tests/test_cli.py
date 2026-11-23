@@ -80,3 +80,11 @@ def test_anomalies_can_score_the_app_rule_at_fixed_multiples(capsys):
     out = capsys.readouterr().out
     assert "fixed multiples (spike 3.0x, drop 7.5x)" in out
     assert "| spike | 3.0 |" in out and "| drop | 7.5 |" in out
+
+
+def test_shrinkage_compares_the_detectors_on_separate_stores(capsys):
+    assert main(["shrinkage", "--seeds", "1", "--validation-stores", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "SYNTHETIC" in out and "validation stores (seeds 1001-1001)" in out
+    for detector in ("missing units (baseline)", "share of sales", "poisson vs store rate"):
+        assert f"| {detector} |" in out

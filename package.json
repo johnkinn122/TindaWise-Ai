@@ -21,7 +21,8 @@
     "backtest:ml": "node scripts/ml.mjs backtest",
     "tune:ml": "node scripts/ml.mjs tune",
     "policies:ml": "node scripts/ml.mjs policies",
-    "anomalies:ml": "node scripts/ml.mjs anomalies"
+    "anomalies:ml": "node scripts/ml.mjs anomalies",
+    "shrinkage:ml": "node scripts/ml.mjs shrinkage"
   },
   "engines": {
     "node": ">=22"

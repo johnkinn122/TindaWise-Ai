@@ -48,12 +48,17 @@ No database needed.
 # Also score the ratio rule at the fixed multiples the app uses (spike 3x, drop 7.5x).
 .venv/Scripts/python -m tindawise_ml anomalies --fixed 3 7.5
 
+# Simulate stores with stock counts and planted shrinkage (stock going missing unrecorded);
+# thresholds chosen on 10 validation stores, scored on separate test stores. Synthetic only.
+.venv/Scripts/python -m tindawise_ml shrinkage
+.venv/Scripts/python -m tindawise_ml shrinkage --count-every 28 --seeds 42 1 2
+
 # Run on a table exported from the database (services/api scripts.export_demand) instead.
 # No oracle row: that needs the generator's formula.
 .venv/Scripts/python -m tindawise_ml backtest --csv demand.csv
 ```
 
-From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run policies:ml`, `npm run anomalies:ml`, `npm run test:ml`, `npm run lint:ml`.
+From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run policies:ml`, `npm run anomalies:ml`, `npm run shrinkage:ml`, `npm run test:ml`, `npm run lint:ml`.
 
 ## Layout
 
@@ -67,6 +72,7 @@ From the repo root: `npm run backtest:ml`, `npm run tune:ml`, `npm run policies:
 | `tuning.py` | The settings grid, scored on the validation period only |
 | `inventory.py` | Reorder policy simulation: the app's current rule vs forecast-based ordering |
 | `anomalies.py` | Labelled anomaly injection, three detectors (ratio, robust z, count tail), evaluation |
+| `shrinkage.py` | Store simulation with true vs recorded stock, counts and planted losses; three shrinkage detectors; evaluation on separate stores |
 | `metrics.py` | MAE, RMSE, WAPE, bias |
 | `backtest.py` | Rolling-origin backtest; daily and window-total scoring (stockout days skipped) |
-| `__main__.py` | The `generate`, `backtest`, `tune`, `policies` and `anomalies` commands |
+| `__main__.py` | The `generate`, `backtest`, `tune`, `policies`, `anomalies` and `shrinkage` commands |
