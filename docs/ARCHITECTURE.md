@@ -98,7 +98,7 @@ src/
 - **Stock changes are idempotent from the UI too.** The stock form creates an `Idempotency-Key` at
   submit time, so a double submit or network retry is applied once.
 - **AI actions stay inert until approval exists.** "Create purchase order" is disabled until the
-  backend has purchase orders with a human-approval flow (claude.md §9).
+  backend has purchase orders with a human-approval flow (claude.md §8).
 - **Rules are not dressed up as AI.** The Overview's reorder list comes from an average of recent
   in-stock sales with a safety buffer, not a model, so it uses a plain panel, not the Resibo
   receipt look, which MASTER.md §7 reserves for AI output. Each line says why it's suggested.
@@ -111,7 +111,7 @@ src/
 |---|---|---|
 | Framework | FastAPI | Sync endpoints (run in a thread pool); simple to reason about for now |
 | Validation | Pydantic v2 | Money is `Decimal` with 2 places, serialized as a string |
-| Database | PostgreSQL 17 + pgvector (Docker, host port 5433) | pgvector is ready for the AI copilot phase |
+| Database | PostgreSQL 17 + pgvector (Docker, host port 5433) | pgvector is installed but not used yet |
 | ORM / migrations | SQLAlchemy 2.1 + Alembic | Constraint naming convention gives stable migration names |
 | Tests / lint | pytest (real PostgreSQL `tindawise_test` DB) + Ruff | Schema is rebuilt from migrations every run |
 
@@ -535,6 +535,6 @@ the "Worth a look" list of unusual sales days. Results: [`docs/ml/EXPERIMENTS.md
 |---|---|
 | Stock anomalies (shrinkage) | Unexplained losses in the stock ledger; needs a simulation of count corrections first |
 
-## AI agents
+## AI agent
 
-📋 Not started. See `claude.md` §8–§9.
+📋 Not started. See `claude.md` §8.
