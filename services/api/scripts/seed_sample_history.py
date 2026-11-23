@@ -367,7 +367,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{counts['sales']:,} receipts, {counts['lines']:,} lines, "
         f"{counts['movements']:,} stock movements."
     )
-    print(f"Sign in as {SAMPLE_OWNER_EMAIL} (password {DEMO_PASSWORD}). Local use only.")
+    print(f"Sign in as {SAMPLE_OWNER_EMAIL} (public demo password {DEMO_PASSWORD}).")
     print(f"Export: python -m scripts.export_demand --org {SAMPLE_ORG_ID} --out demand.csv")
     return 0
 

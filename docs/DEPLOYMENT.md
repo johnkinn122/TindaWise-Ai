@@ -1,7 +1,9 @@
 # Deploying the public demo (free)
 
-Status: 📋 prepared, not deployed yet. The code and config are ready; the accounts below don't
-exist yet.
+Status:
+- ✅ **Database live on Neon** (2026-11-23): project `empty-shape-35732586`, branch `production`,
+  AWS Singapore. Both demo stores are loaded.
+- 📋 API (Render) and web app (Vercel): not deployed yet.
 
 | Piece | Host (free plan) | Notes |
 |---|---|---|
@@ -27,6 +29,22 @@ since free plans change.
   the API address and session tokens stay server-side.
 
 ## 1. Database: Neon
+
+Done with the Neon CLI (`npm i -g neon`). `neon.ts` at the repo root declares the project's
+settings (Postgres only), and `.neon` (git-ignored) links this folder to the project:
+
+```powershell
+neon login                     # browser sign-in, once per computer
+neon deploy                    # applies neon.ts, writes DATABASE_URL + DATABASE_URL_UNPOOLED to .env.local
+```
+
+`.env.local` at the repo root is git-ignored. Of its two strings, the API uses
+**`DATABASE_URL_UNPOOLED`** (the direct one, without `-pooler` in the host) for migrations and
+for its own traffic. It's one long-running server with its own connection pool, and Neon's
+pooler (PgBouncer, transaction mode) doesn't keep session state or psycopg's prepared
+statements.
+
+Without the CLI, from the Neon website:
 
 1. Sign up at neon.com with GitHub.
 2. Create a project named `tindawise`, region **AWS Asia Pacific (Singapore)**, Postgres 17.
