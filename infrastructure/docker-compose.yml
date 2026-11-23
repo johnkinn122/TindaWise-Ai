@@ -2,7 +2,7 @@
 # Usage (from repo root):  docker compose -f infrastructure/docker-compose.yml up -d
 #
 # PostgreSQL listens on host port 5433 so it never clashes with a locally installed
-# PostgreSQL on 5432. The image includes pgvector for the planned AI copilot features.
+# PostgreSQL on 5432. The image includes pgvector (installed, not used yet).
 # Credentials here are for local development only — never reuse them anywhere else.
 
 name: tindawise

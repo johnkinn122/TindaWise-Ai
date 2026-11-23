@@ -70,17 +70,7 @@
 - Prevent data leakage and use chronological data splits.
 - Document experiments, limitations, and actual model performance.
 
-## 8. AI Business Copilot
-- Create a conversational AI assistant for business owners.
-- Answer questions using authorized business data.
-- Analyze sales, inventory, revenue, and profitability.
-- Identify business problems and explain possible causes.
-- Recommend practical actions supported by available evidence.
-- Use secure backend tools to retrieve business information.
-- Never fabricate analytics, financial results, or predictions.
-- Clearly explain uncertainty when information is insufficient.
-
-## 9. Autonomous AI Agent
+## 8. Autonomous AI Agent
 - Use LangGraph for structured agent workflows when necessary.
 - Allow agents to analyze information and propose actions.
 - Generate purchase order drafts and inventory recommendations.
@@ -90,7 +80,7 @@
 - Record agent decisions, approvals, and execution results.
 - Handle failures, retries, and duplicate actions safely.
 
-## 10. Receipt and Invoice Scanner
+## 9. Receipt and Invoice Scanner
 - Allow users to upload receipts and supplier invoices.
 - Validate file formats, sizes, and upload permissions.
 - Extract text using PaddleOCR and OpenCV.
@@ -100,7 +90,7 @@
 - Require user verification before updating business records.
 - Store verified structured data and relevant audit information.
 
-## 11. Project Architecture
+## 10. Project Architecture
 - Use a modular monorepo for the application.
 - Organize the frontend inside `apps/web/`.
 - Organize backend functionality inside `services/api/`.
@@ -110,7 +100,7 @@
 - Keep technical documentation inside `docs/`.
 - Separate UI, business logic, database access, and AI workflows.
 
-## 12. Backend and Database Standards
+## 11. Backend and Database Standards
 - Build RESTful APIs using FastAPI.
 - Validate requests and responses with Pydantic.
 - Manage database schemas using SQLAlchemy and Alembic.
@@ -120,7 +110,7 @@
 - Enforce organization-level data isolation in backend operations.
 - Maintain consistent API documentation and database migrations.
 
-## 13. Security and Privacy
+## 12. Security and Privacy
 - Never expose API keys, passwords, or database credentials.
 - Never commit `.env` files or sensitive customer information.
 - Implement secure authentication and role-based authorization.
@@ -130,7 +120,7 @@
 - Maintain audit logs for sensitive business operations.
 - Follow applicable privacy requirements and data retention rules.
 
-## 14. Coding Standards
+## 13. Coding Standards
 - Write clean, readable, maintainable, and reusable code.
 - Use strict TypeScript and appropriate Python type hints.
 - Keep functions, classes, and components focused.
@@ -140,7 +130,7 @@
 - Inspect existing files before implementing changes.
 - Never delete features or restructure code without approval.
 
-## 15. Git and GitHub Branching
+## 14. Git and GitHub Branching
 - Use Git for version control and GitHub for repository hosting.
 - Keep `main` stable, reviewed, and deployable.
 - Use `feature/` branches for new functionality.
@@ -150,7 +140,7 @@
 - Follow Conventional Commits for meaningful commit messages.
 - Never commit directly to `main` during feature development.
 
-## 16. Git Workflow and Safety
+## 15. Git Workflow and Safety
 - Check `git status` before starting development.
 - Preserve uncommitted changes and existing work.
 - Create a dedicated branch for every major feature.
@@ -160,7 +150,7 @@
 - Never force-push or use `git reset --hard` without permission.
 - Never claim Git operations succeeded without verification.
 
-## 17. Testing, CI/CD, and Documentation
+## 16. Testing, CI/CD, and Documentation
 - Run TypeScript checks, ESLint, Pytest, and relevant builds.
 - Test APIs, database operations, permissions, and AI workflows.
 - Verify responsiveness, accessibility, and important UI interactions.
@@ -170,7 +160,7 @@
 - Document completed features, tests, commits, and known issues.
 - Deploy only after required checks pass and approval is obtained.
 
-## 18. Development and Mentoring Rules
+## 17. Development and Mentoring Rules
 - Inspect existing code and explain proposed changes first.
 - Identify affected files, dependencies, and implementation steps.
 - Ask for approval before major design or architectural changes.

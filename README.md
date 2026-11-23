@@ -1,7 +1,7 @@
 # Tindawise AI
 
 A retail operations platform for small and medium stores in the Philippines: products, stock,
-and (planned) sales, suppliers, demand forecasting and an AI business copilot.
+sales, suppliers and purchase orders, reports, and demand-based reorder suggestions.
 
 > **Status:** early development. Built so far: sign-in with owner/manager/cashier roles,
 > Products, Point of Sale, sales history with refunds, an Overview dashboard, suppliers and
@@ -124,7 +124,7 @@ docs/              ARCHITECTURE.md, DEVELOPMENT_LOG.md, ml/EXPERIMENTS.md
    ✅ LightGBM forecaster (synthetic data) · ✅ demand export from the database ·
    ✅ reorder policy simulation (synthetic data) · ✅ demand-based reorder suggestions in the app ·
    ✅ anomaly detection experiments (synthetic data) · ✅ unusual-sales alerts in the app
-3. **AI agents** (planned): business copilot, purchase-order drafts with human approval
+3. **AI agent** (planned): purchase-order drafts with human approval
 4. **Deployment** (planned)
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design decisions and

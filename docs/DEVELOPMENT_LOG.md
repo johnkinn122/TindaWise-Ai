@@ -4,6 +4,18 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Docs: AI copilot removed from the plan (`docs/remove-ai-copilot`)
+
+- Owner's decision: Tindawise stays a free demo, and the conversational AI copilot won't be built.
+  No code existed for it.
+- `claude.md`: the copilot section is removed and the later sections renumbered (§9-§18 became
+  §8-§17). References updated in ARCHITECTURE.md and this log (§13 → §12).
+- README, ARCHITECTURE.md and docker-compose no longer mention it. pgvector stays installed but
+  unused. The AI agent (purchase-order drafts with human approval, now §8) is still listed as
+  planned.
+
+---
+
 ## 2026-11-23 — Unusual-sales alerts on the Overview (`feature/anomaly-alerts`)
 
 ### Decisions
@@ -155,7 +167,7 @@ I found this while building the activity log.
 ## 2026-11-23 — Audit log (`feature/audit-log`)
 
 ### Why
-CLAUDE.md §13: keep audit logs for sensitive business operations. The AI agent phase will also
+CLAUDE.md §12: keep audit logs for sensitive business operations. The AI agent phase will also
 need somewhere trustworthy to record its proposals and the approvals.
 
 ### Built
@@ -198,7 +210,7 @@ need somewhere trustworthy to record its proposals and the approvals.
   changes its time zone in Store settings. The figures use the store's zone; only the displayed
   times don't. This came with store settings and should be fixed across the app.
 - Not logged yet: sign-in failures, supplier changes, product edits other than price and cost.
-- The log has no export, and there is no retention rule yet (CLAUDE.md §13 mentions retention).
+- The log has no export, and there is no retention rule yet (CLAUDE.md §12 mentions retention).
 
 ---
 
@@ -245,7 +257,7 @@ need somewhere trustworthy to record its proposals and the approvals.
   both.
 
 ### Known issues / open items
-- No audit log of settings changes yet (CLAUDE.md §13 asks for one for sensitive operations).
+- No audit log of settings changes yet (CLAUDE.md §12 asks for one for sensitive operations).
 - The time zone list is long (about 400 entries) and has no search.
 
 ---
