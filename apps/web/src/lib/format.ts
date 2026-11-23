@@ -38,6 +38,12 @@ export function formatPercent(ratio: number, fractionDigits = 1): string {
 }
 
 const calendarDateFormatter = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "UTC" });
+const calendarDayFormatter = new Intl.DateTimeFormat("en-PH", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
 
 // One formatter per style and zone: creating Intl formatters is slow, and a page formats many rows.
 const timestampFormatters = new Map<string, Intl.DateTimeFormat>();
@@ -72,4 +78,9 @@ export function formatDateTime(iso: string, timeZone: string): string {
 /** "Nov 30, 2026" from a date with no time ("2026-11-30"), so no time zone can shift the day. */
 export function formatCalendarDate(isoDate: string): string {
   return calendarDateFormatter.format(new Date(`${isoDate}T00:00:00Z`));
+}
+
+/** "Sat, Nov 21" from a date with no time: for recent days, where the weekday matters more than the year. */
+export function formatCalendarDay(isoDate: string): string {
+  return calendarDayFormatter.format(new Date(`${isoDate}T00:00:00Z`));
 }

@@ -22,6 +22,8 @@ class AuditAction(enum.StrEnum):
     PURCHASE_ORDER_CLOSED = "purchase_order.closed"
     PRODUCT_PRICE_CHANGED = "product.price_changed"
     PRODUCT_ARCHIVED = "product.archived"
+    # A dismissed alert can hide missing sales, so the owner should be able to see who did it.
+    ANOMALY_DISMISSED = "anomaly.dismissed"
 
 
 class AuditEvent(UUIDPrimaryKeyMixin, Base):

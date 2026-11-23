@@ -62,5 +62,7 @@ CanManageTeam = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
 CanEditStore = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
 # The audit log records what managers do too, so the owner is the one who reviews it.
 CanReviewAudit = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]
+# Unusual-sales alerts can point at a cashier's own missing sales, so cashiers don't see them.
+CanReviewAnomalies = Annotated[AuthContext, Depends(require_roles(Role.OWNER, Role.MANAGER))]
 # Approving a purchase order commits the store's money, so only the owner may do it.
 CanApprovePurchases = Annotated[AuthContext, Depends(require_roles(Role.OWNER))]

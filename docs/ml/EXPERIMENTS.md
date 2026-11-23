@@ -5,6 +5,55 @@ show. Commands are from `services/ml` with its virtual environment.
 
 ---
 
+## 2026-11-23 — Fixed multiples for the app's anomaly rule (`feature/anomaly-alerts`)
+
+### Why
+The experiment below chose each threshold per dataset on its validation period. The app needs
+one fixed rule for every store, written as plain multiples an owner can read.
+
+### Setup
+- The six validation-period thresholds for the ratio rule (log scale) were drops 1.74-2.13,
+  median 2.03, and spikes 1.03-1.33, median 1.14. Rounded to plain multiples **before
+  looking at any test score**: drop e^2.03 = 7.6 → **7.5×**, spike e^1.14 = 3.1 → **3×**.
+- Spike: (sold + 1) ≥ 3 × (usual + 1). Drop: (usual + 1) ≥ 7.5 × (sold + 1).
+- Scored once on the same six test periods. No other values were tried.
+- Command: `python -m tindawise_ml anomalies --seed N --fixed 3 7.5` (seeds 42, 1-5).
+
+### Results (test periods)
+
+| seed | spike: alerts / true / planted | drop: alerts / true / planted |
+|---|---|---|
+| 42 | 24 / 10 / 19 | 7 / 7 / 11 |
+| 1 | 22 / 13 / 21 | 9 / 3 / 6 |
+| 2 | 23 / 11 / 18 | 5 / 2 / 7 |
+| 3 | 24 / 9 / 13 | 5 / 5 / 8 |
+| 4 | 25 / 10 / 21 | 4 / 3 / 4 |
+| 5 | 17 / 10 / 24 | 6 / 3 / 6 |
+
+Pooled over the six test periods (72 weeks in total):
+
+| kind | rule | precision | recall | false alarms / week |
+|---|---|---|---|---|
+| spike | fixed 3× | 47% | 54% | 1.00 |
+| spike | tuned per dataset | 50% | 49% | 0.79 |
+| drop | fixed 7.5× | 64% | 55% | 0.18 |
+| drop | tuned per dataset | 56% | 52% | 0.24 |
+
+### What this shows
+- One fixed rule does about as well as thresholds tuned per dataset: slightly better for drops,
+  and for spikes a few more catches for about 0.2 more false alarms a week. The app uses 3×
+  and 7.5× (`services/api/app/services/anomalies.py`).
+- About 1.2 false alarms a week for a 17-product store. Fine for a short list someone glances at
+  and dismisses, too many for push notifications.
+
+### What this does not show
+- Real stores. These are the same planted anomalies and synthetic data as below.
+- How it scales with store size. False alarms grow with the number of products, so a store
+  with 500 products would see many more. The list may need a cap or a stricter spike multiple
+  then.
+
+---
+
 ## 2026-11-23 — Anomaly detection on planted anomalies (`feature/ml-anomalies`)
 
 ### Why

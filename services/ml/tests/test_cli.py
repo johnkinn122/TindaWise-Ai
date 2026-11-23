@@ -72,3 +72,11 @@ def test_anomalies_prints_both_kinds_for_every_detector(capsys):
     assert "Planted" in out and "SYNTHETIC" in out
     for detector in ("ratio (baseline)", "robust_z", "count_tail"):
         assert out.count(f"| {detector} |") == 2, detector
+
+
+def test_anomalies_can_score_the_app_rule_at_fixed_multiples(capsys):
+    args = ["anomalies", "--days", "200", "--period-days", "28", "--rate", "0.05"]
+    assert main([*args, "--fixed", "3", "7.5"]) == 0
+    out = capsys.readouterr().out
+    assert "fixed multiples (spike 3.0x, drop 7.5x)" in out
+    assert "| spike | 3.0 |" in out and "| drop | 7.5 |" in out

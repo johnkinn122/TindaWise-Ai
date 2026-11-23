@@ -280,3 +280,38 @@ def evaluate(
                 }
             )
     return pd.DataFrame(rows)
+
+
+def evaluate_fixed(
+    frame: pd.DataFrame,
+    labels: pd.DataFrame,
+    *,
+    test_start: pd.Timestamp,
+    multiples: dict[str, float],
+) -> pd.DataFrame:
+    """The ratio rule at fixed, plain cut-offs, scored on the test days only. This is the rule
+    the app runs (services/api `app/services/anomalies.py`), so it needs one set of numbers for
+    every store instead of a threshold tuned per dataset.
+
+    `multiples` per kind: a spike is (sold + 1) >= m x (usual + 1); a drop is
+    (usual + 1) >= m x (sold + 1). On the log scale that's a threshold of log(m)."""
+    rows = []
+    for kind, multiple in multiples.items():
+        days = scored_days(frame, labels, ratio_score, kind)
+        test = days[days["date"] >= test_start]
+        # Rounding keeps log(m) computed two ways from splitting an exact tie.
+        result = outcome_at(test.assign(score=test["score"].round(9)), round(np.log(multiple), 9))
+        rows.append(
+            {
+                "kind": kind,
+                "multiple": multiple,
+                "anomalies": result.anomalies,
+                "alerts": result.alerts,
+                "true_alerts": result.true_alerts,
+                "precision": result.precision,
+                "recall": result.recall,
+                "f1": result.f1,
+                "false_per_week": result.false_alarms_per_week,
+            }
+        )
+    return pd.DataFrame(rows)

@@ -16,6 +16,7 @@ export const actionLabels: Record<AuditAction, string> = {
   "purchase_order.closed": "Purchase order closed short",
   "product.price_changed": "Price or cost changed",
   "product.archived": "Product archived",
+  "anomaly.dismissed": "Sales alert dismissed",
 };
 
 const ACTIONS = Object.keys(actionLabels) as AuditAction[];
