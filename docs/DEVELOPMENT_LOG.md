@@ -4,6 +4,21 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Docs: AI agent removed from the plan (`docs/remove-ai-agent`)
+
+- Owner's decision: no AI agent either. It would need an AI model (a paid API key, or a local
+  model), and Tindawise stays a free demo. No code existed for it. Purchase-order drafts from
+  reorder suggestions already exist without AI, and the owner approves every order.
+- `claude.md`: the agent section is removed, and the later sections renumbered (§9-§17 became
+  §8-§16). The overview, tech stack (OpenAI, LangGraph), security rules (AI tool arguments,
+  prompt injection) and roadmap no longer mention AI agents. The roadmap is now
+  Core Platform → ML → Deployment.
+- References updated in this log (security §12 → §11). README and ARCHITECTURE.md no longer list
+  the agent. An outdated ARCHITECTURE note ("Create purchase order" disabled until approvals
+  exist) was removed: approvals have existed since the purchase-order work.
+
+---
+
 ## 2026-11-23 — Docs: AI copilot removed from the plan (`docs/remove-ai-copilot`)
 
 - Owner's decision: Tindawise stays a free demo, and the conversational AI copilot won't be built.
@@ -167,7 +182,7 @@ I found this while building the activity log.
 ## 2026-11-23 — Audit log (`feature/audit-log`)
 
 ### Why
-CLAUDE.md §12: keep audit logs for sensitive business operations. The AI agent phase will also
+CLAUDE.md §11: keep audit logs for sensitive business operations. The AI agent phase will also
 need somewhere trustworthy to record its proposals and the approvals.
 
 ### Built
@@ -210,7 +225,7 @@ need somewhere trustworthy to record its proposals and the approvals.
   changes its time zone in Store settings. The figures use the store's zone; only the displayed
   times don't. This came with store settings and should be fixed across the app.
 - Not logged yet: sign-in failures, supplier changes, product edits other than price and cost.
-- The log has no export, and there is no retention rule yet (CLAUDE.md §12 mentions retention).
+- The log has no export, and there is no retention rule yet (CLAUDE.md §11 mentions retention).
 
 ---
 
@@ -257,7 +272,7 @@ need somewhere trustworthy to record its proposals and the approvals.
   both.
 
 ### Known issues / open items
-- No audit log of settings changes yet (CLAUDE.md §12 asks for one for sensitive operations).
+- No audit log of settings changes yet (CLAUDE.md §11 asks for one for sensitive operations).
 - The time zone list is long (about 400 entries) and has no search.
 
 ---

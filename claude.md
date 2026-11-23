@@ -6,7 +6,6 @@
 - Manage products, inventory, sales, suppliers, and purchase orders.
 - Use machine learning to predict demand and inventory shortages.
 - Provide AI-powered business analytics and recommendations.
-- Automate repetitive tasks through controlled AI agent workflows.
 - Design the system for future international SaaS expansion.
 - Prioritize real-world business value, reliability, and security.
 
@@ -24,7 +23,6 @@
 - Frontend: Next.js, TypeScript, Tailwind CSS, shadcn/ui.
 - Backend: Python, FastAPI, Pydantic, SQLAlchemy.
 - Database: PostgreSQL, Redis, pgvector.
-- AI Agents: OpenAI API, LangGraph.
 - Machine Learning: Scikit-learn, LightGBM, Pandas, NumPy.
 - Computer Vision: PaddleOCR, OpenCV.
 - Testing: Pytest, Vitest, Playwright, ESLint, Ruff.
@@ -70,17 +68,7 @@
 - Prevent data leakage and use chronological data splits.
 - Document experiments, limitations, and actual model performance.
 
-## 8. Autonomous AI Agent
-- Use LangGraph for structured agent workflows when necessary.
-- Allow agents to analyze information and propose actions.
-- Generate purchase order drafts and inventory recommendations.
-- Require human approval before consequential business changes.
-- Validate permissions and tool arguments before execution.
-- Prevent unauthorized purchases and financial modifications.
-- Record agent decisions, approvals, and execution results.
-- Handle failures, retries, and duplicate actions safely.
-
-## 9. Receipt and Invoice Scanner
+## 8. Receipt and Invoice Scanner
 - Allow users to upload receipts and supplier invoices.
 - Validate file formats, sizes, and upload permissions.
 - Extract text using PaddleOCR and OpenCV.
@@ -90,7 +78,7 @@
 - Require user verification before updating business records.
 - Store verified structured data and relevant audit information.
 
-## 10. Project Architecture
+## 9. Project Architecture
 - Use a modular monorepo for the application.
 - Organize the frontend inside `apps/web/`.
 - Organize backend functionality inside `services/api/`.
@@ -100,7 +88,7 @@
 - Keep technical documentation inside `docs/`.
 - Separate UI, business logic, database access, and AI workflows.
 
-## 11. Backend and Database Standards
+## 10. Backend and Database Standards
 - Build RESTful APIs using FastAPI.
 - Validate requests and responses with Pydantic.
 - Manage database schemas using SQLAlchemy and Alembic.
@@ -110,17 +98,17 @@
 - Enforce organization-level data isolation in backend operations.
 - Maintain consistent API documentation and database migrations.
 
-## 12. Security and Privacy
+## 11. Security and Privacy
 - Never expose API keys, passwords, or database credentials.
 - Never commit `.env` files or sensitive customer information.
 - Implement secure authentication and role-based authorization.
 - Enforce access permissions on the backend.
-- Validate user inputs, uploaded files, and AI tool arguments.
-- Protect against SQL injection, XSS, and prompt injection.
+- Validate user inputs and uploaded files.
+- Protect against SQL injection and XSS.
 - Maintain audit logs for sensitive business operations.
 - Follow applicable privacy requirements and data retention rules.
 
-## 13. Coding Standards
+## 12. Coding Standards
 - Write clean, readable, maintainable, and reusable code.
 - Use strict TypeScript and appropriate Python type hints.
 - Keep functions, classes, and components focused.
@@ -130,7 +118,7 @@
 - Inspect existing files before implementing changes.
 - Never delete features or restructure code without approval.
 
-## 14. Git and GitHub Branching
+## 13. Git and GitHub Branching
 - Use Git for version control and GitHub for repository hosting.
 - Keep `main` stable, reviewed, and deployable.
 - Use `feature/` branches for new functionality.
@@ -140,7 +128,7 @@
 - Follow Conventional Commits for meaningful commit messages.
 - Never commit directly to `main` during feature development.
 
-## 15. Git Workflow and Safety
+## 14. Git Workflow and Safety
 - Check `git status` before starting development.
 - Preserve uncommitted changes and existing work.
 - Create a dedicated branch for every major feature.
@@ -150,7 +138,7 @@
 - Never force-push or use `git reset --hard` without permission.
 - Never claim Git operations succeeded without verification.
 
-## 16. Testing, CI/CD, and Documentation
+## 15. Testing, CI/CD, and Documentation
 - Run TypeScript checks, ESLint, Pytest, and relevant builds.
 - Test APIs, database operations, permissions, and AI workflows.
 - Verify responsiveness, accessibility, and important UI interactions.
@@ -160,11 +148,11 @@
 - Document completed features, tests, commits, and known issues.
 - Deploy only after required checks pass and approval is obtained.
 
-## 17. Development and Mentoring Rules
+## 16. Development and Mentoring Rules
 - Inspect existing code and explain proposed changes first.
 - Identify affected files, dependencies, and implementation steps.
 - Ask for approval before major design or architectural changes.
 - Implement features incrementally and explain important logic.
-- Follow the roadmap: Core Platform → ML → AI Agents → Deployment.
+- Follow the roadmap: Core Platform → ML → Deployment.
 - Never invent completed features, successful tests, or deployment results.
 - Consider work complete only after implementation, testing, documentation, and Git review.
