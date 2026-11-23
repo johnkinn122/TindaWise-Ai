@@ -1,5 +1,6 @@
 """All ORM models, imported here so Alembic autogenerate sees every table."""
 
+from app.models.anomaly_dismissal import AnomalyDismissal
 from app.models.audit_event import AuditAction, AuditEvent
 from app.models.category import Category
 from app.models.organization import Organization
@@ -17,6 +18,7 @@ from app.models.supplier import Supplier
 from app.models.user import AuthSession, Membership, Role, User
 
 __all__ = [
+    "AnomalyDismissal",
     "AuditAction",
     "AuditEvent",
     "AuthSession",

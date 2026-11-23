@@ -42,7 +42,9 @@ src/
 │   ├── globals.css             Design tokens + Resibo card styles
 │   └── (dashboard)/            Route group: shares the app shell, not part of the URL
 │       ├── layout.tsx          Sidebar + top bar + <main>
-│       ├── page.tsx            "/" Overview (live: KPIs, week chart, stock to watch, reorder list)
+│       ├── page.tsx            "/" Overview (live: KPIs, week chart, stock to watch, reorder list,
+│       │                       "Worth a look" for owners and managers)
+│       ├── actions.ts          Overview actions: dismiss an unusual-sales alert
 │       ├── error.tsx           Fallback error screen inside the shell
 │       ├── products/           Live: list, /new, /[id] (detail + stock), /[id]/edit, actions.ts
 │       ├── sell/               Live: checkout screen, products/route.ts (lookup for the browser), actions.ts
@@ -56,6 +58,7 @@ src/
 │   ├── ui/                     shadcn primitives (button, table, sheet, badge, tooltip, separator)
 │   ├── layout/                 App shell: sidebar, mobile drawer, top bar, nav, theme toggle
 │   ├── dashboard/              Overview building blocks: KPI strip, chart, stock table, reorder card,
+│   │                           "Worth a look" panel (streams in behind its own Suspense),
 │   │                           Resibo card (AI only; unused until the ML phase)
 │   └── products/               Filters, table, pagination, product form, stock form, archive dialog
 └── lib/
@@ -99,7 +102,8 @@ src/
 - **Rules are not dressed up as AI.** The Overview's reorder list comes from an average of recent
   in-stock sales with a safety buffer, not a model, so it uses a plain panel, not the Resibo
   receipt look, which MASTER.md §7 reserves for AI output. Each line says why it's suggested.
-  There is no forecast line on the sales chart.
+  There is no forecast line on the sales chart. The "Worth a look" panel (unusual sales days)
+  follows the same rule: a ratio against a recent average, so a plain panel.
 
 ## Backend — `services/api`
 
@@ -118,12 +122,14 @@ app/
 ├── api/          HTTP only: routes, query params, status codes. No business rules.
 │   ├── deps.py   DB session, signed-in session (Bearer token), role checks
 │   └── v1/       auth.py, members.py, categories.py, products.py, sales.py, overview.py,
-│                 suppliers.py, purchase_orders.py, reports.py, inventory.py
+│                 suppliers.py, purchase_orders.py, reports.py, inventory.py, store.py,
+│                 audit.py, anomalies.py
 ├── services/     Business rules. Never imports FastAPI; raises domain errors.
 │   ├── auth.py        sign-up, sign-in, sessions, team membership
 │   ├── sales.py       checkout: prices from the DB, all-or-nothing, receipt numbers
 │   ├── overview.py    dashboard figures: store-local days, comparisons
 │   ├── reorder.py     reorder suggestions: recent in-stock sales, lead time, open orders
+│   ├── anomalies.py   unusual sales days ("Worth a look"): ratio rule, dismissals
 │   ├── suppliers.py   supplier list/search, unique names per store (case-insensitive), archive
 │   ├── purchase_orders.py  draft → approve → receive; locks, idempotency, latest-cost rule
 │   ├── reports.py     sales report: periods, buckets, products, categories, payments, purchases
@@ -251,6 +257,35 @@ beat the plain average on all six. Per active product, from the last 28 complete
 - Units are counted as rung up: refunds don't lower the rate (the old rule subtracted them).
 - 7 in-stock days is a judgment call; the simulation always had 28 days of history.
 
+### Unusual sales days (`app/services/anomalies.py`, `GET /api/v1/anomalies`)
+
+Chosen by experiment (`docs/ml/EXPERIMENTS.md`, 2026-11-23): on six synthetic datasets with planted
+anomalies, a plain ratio beat a robust z-score and a negative binomial model. The fixed multiples
+were rounded from the validation-period thresholds and scored once on the test periods.
+
+| Figure | Definition |
+|---|---|
+| Days checked | The 7 complete store days before today (today isn't over, so it isn't checked) |
+| Judged | Active products in stock that day (the shelf never reached zero) on a day the store was open, with 14+ such days in the 28 days before |
+| Open | The store sold something that day (any active product). A day with no sales at all is a closed day, or the till wasn't used |
+| Usual | Average units sold per day on those in-stock, open days |
+| Spike | (sold + 1) ≥ 3 × (usual + 1) |
+| Drop | (usual + 1) ≥ 7.5 × (sold + 1): for a zero day, a product that usually sells 6.5+ a day |
+
+- **Computed on request, not stored.** Alerts always match the records, and there's no
+  scheduler to run or keep in sync. Only dismissals are stored (`anomaly_dismissals`, one per
+  product + store day + kind, enforced by a unique constraint).
+- **Dismissing** (`POST /anomalies/dismissals`): only an alert on the current list can be
+  dismissed (404 otherwise). A repeat returns the first dismissal (200), and simultaneous
+  dismissals store one row and one audit event. Each dismissal goes to the activity log,
+  with its optional note, because a dismissed alert can hide missing sales.
+- **Owners and managers** (`CanReviewAnomalies`). Cashiers get 403: an alert can point at their
+  own unrecorded sales.
+- Units are counted as rung up, as in the demand table: a refunded duplicate still shows as a spike.
+- **Closed days are skipped.** Without this, one holiday would flag every regular seller at once.
+  Found on the sample history store (its sales stop the day before it was seeded). The
+  experiment's synthetic data has no closed days, so its figures still apply.
+
 Cashiers get the same response shape with `sales_scope: "mine"` (their own sales only, matching the
 sales list), `costs_visible: false`, and every cost-derived field (`gross_margin`, `unit_cost`,
 `estimated_cost`) set to `null` by the API, not just hidden in the UI.
@@ -338,6 +373,7 @@ and see stock levels on the product list instead.
 | `purchase_order.approved` / `.cancelled` / `.closed` | The order changes to that status |
 | `product.price_changed` | A product's price or cost changes (old → new) |
 | `product.archived` | An active product is archived |
+| `anomaly.dismissed` | An owner or manager dismisses an unusual-sales alert (product, day, kind, figures, note) |
 
 - **Append-only in the database.** A `BEFORE UPDATE OR DELETE` trigger raises an error for every
   row, whoever runs the statement, including raw SQL. Foreign keys to organizations and users
@@ -417,8 +453,9 @@ Consequences handled in the code:
 ## Machine learning — `services/ml`
 
 🚧 Built: baselines, a LightGBM forecaster, a chronological backtest, a reorder simulation and
-anomaly detection experiments, all on synthetic data. Reorder suggestions in the app use the result.
-Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS.md`](ml/EXPERIMENTS.md).
+anomaly detection experiments, all on synthetic data. Two results are used in the app, each as a
+plain rule re-implemented in the API (no model code is imported): reorder suggestions and
+the "Worth a look" list of unusual sales days. Results: [`docs/ml/EXPERIMENTS.md`](ml/EXPERIMENTS.md).
 
 - **Separate Python package** (`tindawise_ml`) with its own virtual environment and dependencies
   (numpy, pandas, LightGBM). It doesn't import the API, so ML libraries never end up in the API's install,
@@ -491,11 +528,11 @@ Nothing is wired into the API or the web app yet. Results: [`docs/ml/EXPERIMENTS
   windows shifted by a day; at least 14 days needed): a ratio baseline, a robust z-score
   (median/MAD) and a negative binomial tail probability. High and low are separate alerts with
   separate thresholds, chosen on the validation period and scored once on the test period.
-  Result: the ratio baseline is the best on this data (`docs/ml/EXPERIMENTS.md`).
+  Result: the ratio baseline is the best on this data (`docs/ml/EXPERIMENTS.md`). `--fixed
+  SPIKE_X DROP_X` scores it at fixed multiples, the form the app uses (3× and 7.5×).
 
 | Planned next | Notes |
 |---|---|
-| Anomaly alerts in the app | Nightly ratio check from the demand table; needs a place to show and dismiss alerts |
 | Stock anomalies (shrinkage) | Unexplained losses in the stock ledger; needs a simulation of count corrections first |
 
 ## AI agents

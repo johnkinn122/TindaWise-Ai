@@ -45,6 +45,8 @@ No database needed.
 # chosen on the validation period, scored on the test period. Synthetic data only.
 .venv/Scripts/python -m tindawise_ml anomalies
 .venv/Scripts/python -m tindawise_ml anomalies --seed 3 --rate 0.05
+# Also score the ratio rule at the fixed multiples the app uses (spike 3x, drop 7.5x).
+.venv/Scripts/python -m tindawise_ml anomalies --fixed 3 7.5
 
 # Run on a table exported from the database (services/api scripts.export_demand) instead.
 # No oracle row: that needs the generator's formula.

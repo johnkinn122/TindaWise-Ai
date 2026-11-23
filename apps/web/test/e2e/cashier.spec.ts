@@ -86,3 +86,9 @@ test("a cashier can't open the inventory ledger", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Stock changes" })).toHaveCount(0);
   await expect(page.getByText("Stock value", { exact: true })).toHaveCount(0); // the KPI label, not the notice
 });
+
+test("a cashier doesn't see unusual-sales alerts on the Overview", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Reorder suggestions" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Worth a look" })).toHaveCount(0);
+});

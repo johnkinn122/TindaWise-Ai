@@ -13,6 +13,7 @@ from tindawise_ml.anomalies import (
     best_threshold,
     count_tail_score,
     evaluate,
+    evaluate_fixed,
     inject_anomalies,
     outcome_at,
     ratio_score,
@@ -206,3 +207,41 @@ def test_thresholds_are_chosen_without_the_test_days(history, monkeypatch):
     assert len(result) == len(DETECTORS) * 2
     assert all(low >= validation_start and high < test_start for low, high in seen)
     assert set(result["kind"]) == {"spike", "drop"}
+
+
+def test_fixed_multiples_by_hand():
+    # 28 steady days, then two test days. A: 15 sold against an average of 4, (15+1) = 3.2 x
+    # (4+1), a planted spike. C: 14 sold, exactly 3 x, an unplanted big day (ties alert).
+    # B: 0 sold against 10, (10+1) = 11 x (0+1), a planted drop.
+    dates = pd.date_range("2025-01-01", periods=30, freq="D")
+    sales = {"A": [4] * 28 + [15, 4], "B": [10] * 28 + [10, 0], "C": [4] * 28 + [14, 4]}
+    frame = pd.DataFrame(
+        [
+            {"date": d, "sku": sku, "units_sold": units[i], "stockout": False}
+            for sku, units in sales.items()
+            for i, d in enumerate(dates)
+        ]
+    )
+    labels = pd.DataFrame(
+        {"date": [dates[28], dates[29]], "sku": ["A", "B"], "kind": ["spike", "drop"]}
+    )
+    result = evaluate_fixed(
+        frame, labels, test_start=dates[28], multiples={"spike": 3, "drop": 7.5}
+    ).set_index("kind")
+    spike, drop = result.loc["spike"], result.loc["drop"]
+    assert (spike["alerts"], spike["true_alerts"], spike["anomalies"]) == (2, 1, 1)
+    assert spike["false_per_week"] == pytest.approx(1 / (2 / 7))
+    assert (drop["alerts"], drop["true_alerts"], drop["anomalies"]) == (1, 1, 1)
+
+
+def test_fixed_multiples_ignore_days_before_the_test_period(history):
+    last = history["date"].max()
+    test_start = last - pd.Timedelta(days=27)
+    planted, labels = inject_anomalies(history, rate=0.05, seed=4, start=history["date"].min())
+    result = evaluate_fixed(
+        planted, labels, test_start=test_start, multiples={"spike": 3, "drop": 7.5}
+    )
+    in_test = labels[labels["date"] >= test_start]
+    for kind in ("spike", "drop"):
+        row = result[result["kind"] == kind].iloc[0]
+        assert row["anomalies"] == (in_test["kind"] == kind).sum()

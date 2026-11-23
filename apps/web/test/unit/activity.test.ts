@@ -58,6 +58,7 @@ describe("actionLabels", () => {
   it("names every action the API records", () => {
     expect(Object.keys(actionLabels).sort()).toEqual(
       [
+        "anomaly.dismissed",
         "member.added",
         "product.archived",
         "product.price_changed",

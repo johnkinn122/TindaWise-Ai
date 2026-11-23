@@ -213,7 +213,41 @@ export type AuditAction =
   | "purchase_order.cancelled"
   | "purchase_order.closed"
   | "product.price_changed"
-  | "product.archived";
+  | "product.archived"
+  | "anomaly.dismissed";
+
+/**
+ * One unusual sales day (GET /anomalies, owners and managers). The rule is in
+ * services/api/app/services/anomalies.py.
+ */
+export interface AnomalyAlert {
+  product_id: string;
+  name: string;
+  sku: string;
+  unit: string;
+  /** Store-local calendar day ("2026-11-21"). */
+  day: string;
+  /** "spike": sold far more than usual. "drop": sold far less than usual while in stock. */
+  kind: "spike" | "drop";
+  units_sold: number;
+  /** Average units a day on recent in-stock days, one decimal ("9.0"). */
+  usual_daily: string;
+  in_stock_days: number;
+}
+
+export interface Anomalies {
+  as_of: string;
+  timezone: string;
+  /** The days checked: the 7 complete store days before today. */
+  first_day: string;
+  last_day: string;
+  window_days: number;
+  spike_multiple: string;
+  drop_multiple: string;
+  /** Not dismissed, newest day first. */
+  alerts: AnomalyAlert[];
+  dismissed_count: number;
+}
 
 /** One entry of the append-only activity log (GET /audit-events, owner only). */
 export interface AuditEvent {

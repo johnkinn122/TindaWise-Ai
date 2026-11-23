@@ -7,6 +7,7 @@ import { Panel } from "@/components/dashboard/panel";
 import { ReorderCard } from "@/components/dashboard/reorder-card";
 import { SalesChart } from "@/components/dashboard/sales-chart";
 import { StockTable } from "@/components/dashboard/stock-table";
+import { WorthALook } from "@/components/dashboard/worth-a-look";
 import { ApiErrorState } from "@/components/products/api-error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,8 +83,14 @@ async function OverviewContent() {
           </Panel>
         </div>
         {/* On small screens the reorder list comes right after the KPIs: it is the "what to do next". */}
-        <div className="order-first min-w-0 lg:order-none lg:col-span-4">
+        <div className="order-first grid min-w-0 gap-5 lg:order-none lg:col-span-4">
           <ReorderCard reorder={overview.reorder} canOrder={canManageInventory(me.role)} />
+          {/* Owners and managers only: an alert can point at a cashier's own missing sales. */}
+          {canManageInventory(me.role) && (
+            <Suspense fallback={<Skeleton aria-label="Loading unusual sales days" className="h-48 rounded-lg" />}>
+              <WorthALook />
+            </Suspense>
+          )}
         </div>
       </div>
     </>

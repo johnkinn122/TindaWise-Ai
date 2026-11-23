@@ -4,6 +4,84 @@ Newest entries first. Each entry records what was built, how it was verified, an
 
 ---
 
+## 2026-11-23 — Unusual-sales alerts on the Overview (`feature/anomaly-alerts`)
+
+### Decisions
+- Owner's choices: build the in-app list next (before stock anomalies or the copilot), show it
+  as a "Worth a look" panel on the Overview, owners and managers see and dismiss it.
+- **Computed on request, not by a nightly job.** Only complete store days are checked, so the
+  result is the same as a nightly run, with no scheduler to build or keep running. Only
+  dismissals are stored.
+- **A plain panel, not the Resibo card.** Like the reorder list, it's a ratio against an average,
+  and MASTER.md §7 keeps the receipt look for AI output.
+- Dismissals go to the activity log: a dismissed alert can hide missing sales, so the owner can
+  see who dismissed what, and why (optional note).
+
+### Built
+- ML: `evaluate_fixed` and `anomalies --fixed SPIKE_X DROP_X` score the ratio rule at fixed
+  multiples on the test period. The app's 3× and 7.5× were rounded from the validation thresholds
+  first, then scored once (EXPERIMENTS.md): spikes 47% precision / 54% recall, drops 64% / 55%,
+  about as good as thresholds tuned per dataset.
+- API:
+  - `services/anomalies.py`: the rule over `daily_demand` for the last 7 complete store days.
+  - Migration `5f56d7cc7f53` adds `anomaly_dismissals`, unique per product + day + kind.
+  - `GET /api/v1/anomalies` and `POST /api/v1/anomalies/dismissals` (owners and managers, new
+    `CanReviewAnomalies`), plus the audit action `anomaly.dismissed`.
+- Web:
+  - The "Worth a look" panel, under the reorder card, streams in behind its own Suspense. Each
+    row has a kind label (icon and text, never color alone), the store day, and the evidence
+    ("Sold 0 pcs while in stock · usually about 9 a day").
+  - Dismiss opens an inline note field. Focus moves into the field and back on Cancel, and a
+    live region announces the dismissal.
+  - The footer explains the rule and the likely causes, and counts dismissed alerts.
+
+### Found and fixed
+- **A closed day flagged every product.** The sample history store's sales stop the day before it
+  was seeded, so its first unsold day flagged all five regular sellers as drops. In a real store
+  that's a holiday or a day the till wasn't used: one fact about the store, not five product
+  problems. Days with no sales at all are now neither checked nor counted in "usual". The
+  synthetic datasets have no such days (checked: 0 in all six), so the experiment's figures
+  still apply.
+- The activity-log summary said "21 Nov" and "9.0 a day" while the panel says "Nov 21" and
+  "9 a day". Now they match.
+- An API test expected a usual of 9.0 where the code correctly gave 8.5: the product's creation
+  day counted as an in-stock day with no sales. The test was wrong. It now creates the product
+  on its first selling day.
+
+### Verified
+- ML pytest 122/122 (3 new: fixed multiples by hand including an exact tie, test days only, CLI).
+- API pytest 256/256 (24 new):
+  - The rule by hand: exact 3× and 7.5× ties, the +1 for slow sellers, 14-day minimum.
+  - Against real records: newest first and drops before spikes; usual from earlier in-stock days.
+  - Not judged: today, days older than 7, empty shelves, new products, closed days (also kept
+    out of "usual"); archived products and other stores are left out.
+  - The store's time zone decides the day.
+  - Dismissing: leaves the list and is counted; 4 simultaneous dismissals store 1 row and 1
+    audit event; a repeat returns the first (200); only listed alerts (404 otherwise); bad input
+    422; cashiers 403, signed out 401; another store 404. The audit summary wording is checked.
+- Migration upgrade → downgrade → upgrade; `alembic check` clean. Ruff clean.
+- Vitest 138/138 (10 new: wording, weekday dates, the list, dismiss with a note, the API's
+  refusal kept in the form, focus back on Cancel).
+- Playwright 96/96 (2 new: the owner sees the panel; a cashier doesn't). axe on `/` in both
+  themes includes the panel.
+- Manual, on a temporary store in the dev database ("Visual check store (temporary)", seeded
+  through the API with one planted drop and one spike): 1440px light, 390px dark, and the
+  dismiss form open. No overflow, no console errors. Dismissed one alert in the browser: the
+  row left, the footer counted it, and the activity log showed the entry.
+
+### Known issues / open items
+- The demo store's products have under 14 days of history, so it shows the empty state. The
+  dismiss flow is tested in the API and unit tests, not end to end.
+- No undo for a dismissal (it's in the activity log). No list of past dismissals in the app.
+- False alarms grow with the number of products (about 1.2 a week for 17). A large store may
+  need a cap or a stricter spike multiple.
+- "Open" is judged from active products' sales only, so a day where only archived products
+  sold would count as closed.
+- No weekday adjustment. Stock (shrinkage) anomalies are still planned.
+- The temporary visual-check store is left in the dev database (like the E2E stores).
+
+---
+
 ## 2026-11-23 — ML: anomaly detection experiments (`feature/ml-anomalies`)
 
 ### Built

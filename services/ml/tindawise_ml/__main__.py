@@ -19,7 +19,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from tindawise_ml.anomalies import evaluate as evaluate_anomalies
-from tindawise_ml.anomalies import inject_anomalies
+from tindawise_ml.anomalies import evaluate_fixed, inject_anomalies
 from tindawise_ml.backtest import run_backtest, score, score_totals, tiling_origins
 from tindawise_ml.baselines import BASELINES, in_stock_moving_average, moving_average
 from tindawise_ml.data import load_demand_csv
@@ -162,6 +162,13 @@ def main(argv: list[str] | None = None) -> int:
     _history_args(anomalies, csv=False)
     anomalies.add_argument("--rate", type=float, default=0.02, help="share of product-days")
     anomalies.add_argument("--period-days", type=int, default=84)
+    anomalies.add_argument(
+        "--fixed",
+        nargs=2,
+        type=float,
+        metavar=("SPIKE_X", "DROP_X"),
+        help="also score the ratio rule (the app's) at these fixed multiples on the test period",
+    )
 
     args = parser.parse_args(argv)
     source = getattr(args, "csv", None)
@@ -199,6 +206,17 @@ def main(argv: list[str] | None = None) -> int:
             f"scored on {test_start.date()} onwards.\n"
         )
         print(_markdown(table.sort_values(["kind", "avg_precision"], ascending=[True, False])))
+        if args.fixed is not None:
+            spike, drop = args.fixed
+            fixed = evaluate_fixed(
+                planted, labels, test_start=test_start, multiples={"spike": spike, "drop": drop}
+            )
+            for column in ("precision", "recall"):
+                fixed[column] = fixed[column].map(lambda v: "n/a" if pd.isna(v) else f"{v:.0%}")
+            for column in ("f1", "false_per_week"):
+                fixed[column] = fixed[column].map(lambda v: f"{v:.2f}")
+            print(f"\nRatio rule at fixed multiples (spike {spike}x, drop {drop}x), test period:\n")
+            print(_markdown(fixed))
         return 0
 
     if args.command == "policies":
